@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PWSV.Api/PWSV.Api.csproj" />
+    <Project Path="src/PWSV.Application/PWSV.Application.csproj" />
+    <Project Path="src/PWSV.Client/PWSV.Client.csproj" />
+    <Project Path="src/PWSV.Domain/PWSV.Domain.csproj" />
+    <Project Path="src/PWSV.Infrastructure/PWSV.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PWSV.Api.IntegrationTests/PWSV.Api.IntegrationTests.csproj" />
+    <Project Path="tests/PWSV.Application.Tests/PWSV.Application.Tests.csproj" />
+    <Project Path="tests/PWSV.Domain.Tests/PWSV.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

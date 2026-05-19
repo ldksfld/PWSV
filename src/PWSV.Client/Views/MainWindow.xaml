@@ -1,0 +1,118 @@
+<Window x:Class="PWSV.Client.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:PWSV.Client.ViewModels"
+        xmlns:vmacc="clr-namespace:PWSV.Client.ViewModels.Accounts"
+        xmlns:vmcat="clr-namespace:PWSV.Client.ViewModels.Categories"
+        xmlns:vmcur="clr-namespace:PWSV.Client.ViewModels.Currencies"
+        xmlns:vmex="clr-namespace:PWSV.Client.ViewModels.ExchangeRates"
+        xmlns:vmtx="clr-namespace:PWSV.Client.ViewModels.Transactions"
+        xmlns:views="clr-namespace:PWSV.Client.Views"
+        xmlns:vacc="clr-namespace:PWSV.Client.Views.Accounts"
+        xmlns:vcat="clr-namespace:PWSV.Client.Views.Categories"
+        xmlns:vcur="clr-namespace:PWSV.Client.Views.Currencies"
+        xmlns:vex="clr-namespace:PWSV.Client.Views.ExchangeRates"
+        xmlns:vtx="clr-namespace:PWSV.Client.Views.Transactions"
+        Title="Personal Wealth &amp; Security Vault"
+        Width="1280" Height="800" MinWidth="1100" MinHeight="700"
+        WindowStartupLocation="CenterScreen"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        TextOptions.TextHintingMode="Fixed">
+
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type vm:LoginViewModel}"><views:LoginView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:RegisterViewModel}"><views:RegisterView /></DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:MainViewModel}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="240" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Background="{StaticResource SidebarBackgroundBrush}">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top" Padding="20,24,20,20">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="36" Height="36"
+                                            Background="{StaticResource HeaderGradientBrush}"
+                                            CornerRadius="10"
+                                            Margin="0,0,12,0">
+                                        <TextBlock Text="₴" FontSize="20" FontWeight="Bold"
+                                                   Foreground="White"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="PWSV" Foreground="White"
+                                                   FontSize="16" FontWeight="SemiBold" />
+                                        <TextBlock Text="Wealth Vault"
+                                                   Foreground="{StaticResource SidebarTextBrush}"
+                                                   FontSize="11" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border DockPanel.Dock="Bottom" Padding="16,16">
+                            <StackPanel>
+                                <Border Background="{StaticResource SidebarItemHoverBrush}"
+                                        CornerRadius="8" Padding="12,10" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <TextBlock Text="Користувач"
+                                                   Foreground="{StaticResource SidebarTextBrush}"
+                                                   FontSize="11" />
+                                        <TextBlock Text="{Binding Username}"
+                                                   Foreground="White" FontSize="14" FontWeight="Medium"
+                                                   Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <Button Content="Вийти"
+                                        Command="{Binding LogoutCommand}"
+                                        Style="{StaticResource SidebarOutlineButtonStyle}"
+                                        HorizontalAlignment="Stretch" />
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Margin="0,16,0,0">
+                            <TextBlock Text="МЕНЮ" Margin="20,0,0,8"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="11" FontWeight="SemiBold" />
+                            <Button Tag="Accounts" Content="📊  Рахунки" Command="{Binding ShowAccountsCommand}"
+                                    Style="{StaticResource SidebarButtonStyle}" />
+                            <Button Tag="Categories" Content="📂  Категорії" Command="{Binding ShowCategoriesCommand}"
+                                    Style="{StaticResource SidebarButtonStyle}" />
+                            <Button Tag="Currencies" Content="💱  Валюти" Command="{Binding ShowCurrenciesCommand}"
+                                    Style="{StaticResource SidebarButtonStyle}" />
+                            <Button Tag="ExchangeRates" Content="📈  Курси валют" Command="{Binding ShowExchangeRatesCommand}"
+                                    Style="{StaticResource SidebarButtonStyle}" />
+                            <Button Tag="Transactions" Content="💸  Транзакції" Command="{Binding ShowTransactionsCommand}"
+                                    Style="{StaticResource SidebarButtonStyle}" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <Border Grid.Column="1" Background="{StaticResource BackgroundBrush}">
+                    <ContentControl Margin="28,24" Content="{Binding Navigation.CurrentContent}" />
+                </Border>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vmacc:AccountsListViewModel}"><vacc:AccountsListView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vmacc:AccountDetailsViewModel}"><vacc:AccountDetailsView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vmcat:CategoriesViewModel}"><vcat:CategoriesView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vmcur:CurrenciesViewModel}"><vcur:CurrenciesView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vmex:ExchangeRatesViewModel}"><vex:ExchangeRatesView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vmtx:TransactionsListViewModel}"><vtx:TransactionsListView /></DataTemplate>
+    </Window.Resources>
+
+    <Window.InputBindings>
+        <KeyBinding Key="N" Modifiers="Control" Command="{Binding CurrentViewModel.NewTransactionCommand}" />
+        <KeyBinding Key="F5" Command="{Binding CurrentViewModel.RefreshCommand}" />
+    </Window.InputBindings>
+
+    <ContentControl Content="{Binding CurrentViewModel}" />
+</Window>

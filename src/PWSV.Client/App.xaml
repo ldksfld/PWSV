@@ -1,0 +1,19 @@
+<Application x:Class="PWSV.Client.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:PWSV.Client.Converters">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Resources/ColorPalette.xaml" />
+                <ResourceDictionary Source="/Resources/Styles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+            <conv:MoneyFormatConverter x:Key="MoneyFmt" />
+            <conv:BoolToYesNoConverter x:Key="BoolToYesNo" />
+            <conv:TransactionKindConverter x:Key="TxKind" />
+            <conv:DecimalInputConverter x:Key="DecimalInput" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

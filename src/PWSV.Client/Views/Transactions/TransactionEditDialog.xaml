@@ -1,0 +1,87 @@
+<Window x:Class="PWSV.Client.Views.Transactions.TransactionEditDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:PWSV.Client.Converters"
+        Title="{Binding Title}" Width="500" Height="640"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource BackgroundBrush}">
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+    </Window.Resources>
+    <Border Padding="24">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                <TextBlock Text="{Binding Title}" Style="{StaticResource HeadingTextStyle}" />
+                <TextBlock Text="Заповніть деталі операції"
+                           Style="{StaticResource SubtitleTextStyle}" />
+            </StackPanel>
+
+            <Border Grid.Row="1" Style="{StaticResource ErrorBannerStyle}"
+                    Visibility="{Binding ErrorMessage, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="{Binding ErrorMessage}"
+                           Foreground="{StaticResource ErrorHoverBrush}"
+                           TextWrapping="Wrap" />
+            </Border>
+
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="0,0,-8,0" Padding="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Text="Рахунок" Style="{StaticResource LabelTextStyle}" />
+                    <ComboBox ItemsSource="{Binding Accounts}"
+                              SelectedItem="{Binding SelectedAccount}"
+                              DisplayMemberPath="Name" TabIndex="0" />
+
+                    <StackPanel Visibility="{Binding IsTransfer, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="Рахунок-отримувач" Style="{StaticResource LabelTextStyle}" />
+                        <ComboBox ItemsSource="{Binding Accounts}"
+                                  SelectedItem="{Binding SelectedDestinationAccount}"
+                                  DisplayMemberPath="Name" TabIndex="1" />
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding RequiresCategory, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="Категорія" Style="{StaticResource LabelTextStyle}" />
+                        <ComboBox ItemsSource="{Binding Categories}"
+                                  SelectedItem="{Binding SelectedCategory}"
+                                  DisplayMemberPath="Name" TabIndex="2" />
+                    </StackPanel>
+
+                    <TextBlock Text="Сума" Style="{StaticResource LabelTextStyle}" />
+                    <TextBox Text="{Binding AmountInput, UpdateSourceTrigger=PropertyChanged}" TabIndex="3" />
+
+                    <StackPanel Visibility="{Binding RequiresExchangeRate, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="Курс конверсії" Style="{StaticResource LabelTextStyle}" />
+                        <TextBox Text="{Binding ExchangeRateInput, UpdateSourceTrigger=PropertyChanged}" TabIndex="4" />
+                    </StackPanel>
+
+                    <TextBlock Text="Дата та час" Style="{StaticResource LabelTextStyle}" />
+                    <DatePicker SelectedDate="{Binding OccurredAt}" TabIndex="5" />
+
+                    <TextBlock Text="Опис (опціонально, шифрується)"
+                               Style="{StaticResource LabelTextStyle}" />
+                    <TextBox Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" TabIndex="6" />
+
+                    <StackPanel Visibility="{Binding RequiresCategory, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="Контрагент" Style="{StaticResource LabelTextStyle}" />
+                        <TextBox Text="{Binding Counterparty, UpdateSourceTrigger=PropertyChanged}" TabIndex="7" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Row="3" BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,1,0,0" Margin="0,16,0,0" Padding="0,16,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Скасувати" Click="OnCancelClick"
+                            Style="{StaticResource SecondaryButtonStyle}" TabIndex="9" />
+                    <Button Content="Зберегти" Command="{Binding SaveCommand}"
+                            IsDefault="True" TabIndex="8" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>
