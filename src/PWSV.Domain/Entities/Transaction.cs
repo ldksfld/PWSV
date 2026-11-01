@@ -26,6 +26,13 @@ public sealed class Transaction
     public Category? Category { get; set; }
     public Transaction? LinkedTransaction { get; set; }
 
+    public bool IsOutgoing => Kind switch
+    {
+        TransactionKind.Income => false,
+        TransactionKind.Expense => true,
+        _ => LinkedTransactionId is null || LinkedTransactionId > Id
+    };
+
     public void EnsurePositiveAmount()
     {
         if (Amount <= 0m)

@@ -28,4 +28,13 @@ public sealed class MoneyTests
         money.Amount.Should().Be(0m);
         money.CurrencyId.Should().Be(2);
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public void Constructor_WithNonPositiveCurrencyId_ThrowsInvalidCurrencyException(int currencyId)
+    {
+        var act = () => new Money(10m, currencyId);
+        act.Should().Throw<InvalidCurrencyException>();
+    }
 }

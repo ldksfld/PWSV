@@ -15,6 +15,11 @@ public readonly record struct Money
             throw new InvalidAmountException(amount);
         }
 
+        if (currencyId <= 0)
+        {
+            throw new InvalidCurrencyException(currencyId);
+        }
+
         Amount = amount;
         CurrencyId = currencyId;
     }
