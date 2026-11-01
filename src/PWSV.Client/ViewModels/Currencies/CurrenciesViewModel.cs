@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PWSV.Client.Models;
@@ -8,45 +9,42 @@ using PWSV.Client.Services.Interfaces;
 
 namespace PWSV.Client.ViewModels.Currencies;
 
-public sealed partial class CurrenciesViewModel : ViewModelBase
+public sealed partial class CurrenciesViewModel(IApiClient api) : ViewModelBase, ILoadableViewModel
 {
-    private readonly IApiClient _api;
-
-    public CurrenciesViewModel(IApiClient api)
-    {
-        _api = api;
-        _ = LoadAsync(CancellationToken.None);
-    }
-
     public ObservableCollection<CurrencyModel> Currencies { get; } = [];
 
     [ObservableProperty]
-    [Required(ErrorMessage = "Код обов'язковий.")]
-    [StringLength(10, MinimumLength = 3, ErrorMessage = "Код від 3 до 10 символів.")]
+    [NotifyDataErrorInfo]
+    [Required(ErrorMessage = "Код валюти обов'язковий.")]
+    [RegularExpression(@"^\s*[A-Za-z0-9]{3,10}\s*$", ErrorMessage = "Код валюти має містити від 3 до 10 латинських літер або цифр.")]
     private string _newCode = string.Empty;
 
     [ObservableProperty]
-    [Required]
-    [MaxLength(64)]
+    [NotifyDataErrorInfo]
+    [Required(ErrorMessage = "Назва валюти обов'язкова.")]
+    [MaxLength(64, ErrorMessage = "Назва валюти має містити не більше 64 символів.")]
     private string _newName = string.Empty;
 
     [ObservableProperty]
-    [Required]
-    [MaxLength(8)]
+    [NotifyDataErrorInfo]
+    [Required(ErrorMessage = "Символ валюти обов'язковий.")]
+    [MaxLength(8, ErrorMessage = "Символ валюти має містити не більше 8 символів.")]
     private string _newSymbol = string.Empty;
 
     [ObservableProperty]
-    [Range(0, 8)]
-    private byte _newDecimalPlaces = 2;
+    [NotifyDataErrorInfo]
+    [Required(ErrorMessage = "Кількість знаків після коми обов'язкова.")]
+    [RegularExpression(@"^\s*[0-8]\s*$", ErrorMessage = "Кількість знаків після коми має бути цілим числом від 0 до 8.")]
+    private string _newDecimalPlaces = "2";
 
     [RelayCommand(CanExecute = nameof(CanExecuteCommands))]
-    public async Task LoadAsync(CancellationToken cancellationToken)
+    private async Task LoadAsync(CancellationToken cancellationToken)
     {
         try
         {
             IsBusy = true;
             ClearError();
-            var items = await _api.GetCurrenciesAsync(cancellationToken);
+            var items = await api.GetCurrenciesAsync(cancellationToken);
             Currencies.Clear();
             foreach (var item in items)
             {
@@ -67,31 +65,37 @@ public sealed partial class CurrenciesViewModel : ViewModelBase
     private async Task AddAsync(CancellationToken cancellationToken)
     {
         ClearError();
-        ValidateAllProperties();
-        if (HasErrors)
+        if (!TryValidate())
         {
-            ErrorMessage = "Перевірте коректність полів.";
             return;
         }
 
         try
         {
             IsBusy = true;
-            await _api.CreateCurrencyAsync(NewCode.Trim(), NewName.Trim(), NewSymbol.Trim(), NewDecimalPlaces, cancellationToken);
-            NewCode = string.Empty;
-            NewName = string.Empty;
-            NewSymbol = string.Empty;
-            NewDecimalPlaces = 2;
-            await LoadAsync(cancellationToken);
+            await api.CreateCurrencyAsync(
+                NewCode.Trim().ToUpperInvariant(),
+                NewName.Trim(),
+                NewSymbol.Trim(),
+                byte.Parse(NewDecimalPlaces.Trim(), CultureInfo.InvariantCulture),
+                cancellationToken);
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
         {
             SetErrorFromException(ex);
+            return;
         }
         finally
         {
             IsBusy = false;
         }
+
+        NewCode = string.Empty;
+        NewName = string.Empty;
+        NewSymbol = string.Empty;
+        NewDecimalPlaces = "2";
+        ClearErrors();
+        await LoadAsync(cancellationToken);
     }
 
     private bool CanExecuteCommands() => !IsBusy;

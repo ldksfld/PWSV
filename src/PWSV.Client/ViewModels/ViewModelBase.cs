@@ -32,6 +32,23 @@ public abstract class ViewModelBase : ObservableValidator
 
     protected void ClearError() => ErrorMessage = null;
 
+    protected bool TryValidate()
+    {
+        ValidateAllProperties();
+        if (!HasErrors)
+        {
+            return true;
+        }
+
+        ErrorMessage = string.Join(
+            Environment.NewLine,
+            GetErrors()
+                .Select(error => error.ErrorMessage)
+                .Where(message => !string.IsNullOrWhiteSpace(message))
+                .Distinct());
+        return false;
+    }
+
     protected void SetErrorFromException(Exception ex)
     {
         ErrorMessage = ex switch

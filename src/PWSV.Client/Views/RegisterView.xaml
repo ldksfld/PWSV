@@ -46,11 +46,11 @@
                 <PasswordBox x:Name="ConfirmPasswordBox" PasswordChar="•" TabIndex="2"
                              PasswordChanged="ConfirmPasswordBox_OnPasswordChanged" />
 
-                <TextBlock Text="Мастер-пароль (для шифрування чутливих полів)" Style="{StaticResource LabelTextStyle}" />
+                <TextBlock Text="Майстер-пароль (для шифрування чутливих полів)" Style="{StaticResource LabelTextStyle}" />
                 <PasswordBox x:Name="MasterPasswordBox" PasswordChar="•" TabIndex="3"
                              PasswordChanged="MasterPasswordBox_OnPasswordChanged" />
 
-                <TextBlock Text="Підтвердження мастер-пароля" Style="{StaticResource LabelTextStyle}" />
+                <TextBlock Text="Підтвердження майстер-пароля" Style="{StaticResource LabelTextStyle}" />
                 <PasswordBox x:Name="ConfirmMasterPasswordBox" PasswordChar="•" TabIndex="4"
                              PasswordChanged="ConfirmMasterPasswordBox_OnPasswordChanged" />
 

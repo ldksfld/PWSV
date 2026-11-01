@@ -10,9 +10,12 @@ public sealed record AccountModel
     public int CurrencyId { get; init; }
     public string CurrencyCode { get; init; } = string.Empty;
     public string CurrencySymbol { get; init; } = string.Empty;
+    public byte CurrencyDecimalPlaces { get; init; } = 2;
     public decimal Balance { get; init; }
     public bool IsActive { get; init; }
     public string? AccountNumber { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
+
+    public string DisplayName => $"{Name} ({CurrencyCode})";
 }

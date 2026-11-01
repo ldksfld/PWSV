@@ -7,9 +7,10 @@ public interface ITokenStorage
     int? UserId { get; }
     string? Username { get; }
     bool IsAuthenticated { get; }
+    string? SignOutReason { get; }
 
     event Action? AuthenticationChanged;
 
     void Set(int userId, string username, string accessToken, DateTime expiresAt);
-    void Clear();
+    void Clear(string? reason = null);
 }

@@ -14,13 +14,15 @@ public sealed partial class MainViewModel : ViewModelBase
     private readonly INavigationService _navigation;
     private readonly ITokenStorage _tokenStorage;
     private readonly IServiceProvider _services;
+    private readonly IDialogService _dialog;
 
-    public MainViewModel(INavigationService navigation, ITokenStorage tokenStorage, IServiceProvider services)
+    public MainViewModel(INavigationService navigation, ITokenStorage tokenStorage, IServiceProvider services, IDialogService dialog)
     {
         _navigation = navigation;
         _tokenStorage = tokenStorage;
         _services = services;
-        _tokenStorage.AuthenticationChanged += () => OnPropertyChanged(nameof(Username));
+        _dialog = dialog;
+        _tokenStorage.AuthenticationChanged += OnAuthenticationChanged;
         _navigation.ContentNavigated += OnContentNavigated;
         ShowAccountsCommand.Execute(null);
     }
@@ -34,6 +36,15 @@ public sealed partial class MainViewModel : ViewModelBase
     {
         get => _activeSection;
         private set => SetProperty(ref _activeSection, value);
+    }
+
+    private void OnAuthenticationChanged()
+    {
+        OnPropertyChanged(nameof(Username));
+        if (_tokenStorage.IsAuthenticated)
+        {
+            _navigation.NavigateContent<AccountsListViewModel>();
+        }
     }
 
     private void OnContentNavigated()
@@ -66,36 +77,37 @@ public sealed partial class MainViewModel : ViewModelBase
     private void ShowTransactions() => _navigation.NavigateContent<TransactionsListViewModel>();
 
     [RelayCommand]
-    private async Task NewTransactionAsync(CancellationToken cancellationToken)
+    private async Task NewTransactionAsync()
     {
         _navigation.NavigateContent<TransactionsListViewModel>();
-        var vm = _services.GetRequiredService<TransactionsListViewModel>();
-        if (vm.AddIncomeCommand.CanExecute(null))
+        var transactions = _services.GetRequiredService<TransactionsListViewModel>();
+        if (transactions.LoadCommand.ExecutionTask is { } loading)
         {
-            await vm.AddIncomeCommand.ExecuteAsync(cancellationToken);
+            await loading;
+        }
+
+        if (transactions.AddIncomeCommand.CanExecute(null))
+        {
+            await transactions.AddIncomeCommand.ExecuteAsync(null);
         }
     }
 
     [RelayCommand]
-    private async Task RefreshAsync(CancellationToken cancellationToken)
+    private async Task RefreshAsync()
     {
-        switch (_navigation.CurrentContent)
+        if (_navigation.CurrentContent is ILoadableViewModel loadable)
         {
-            case AccountsListViewModel accounts:
-                await accounts.LoadAsync(cancellationToken);
-                break;
-            case CategoriesViewModel categories:
-                await categories.LoadAsync(cancellationToken);
-                break;
-            case CurrenciesViewModel currencies:
-                await currencies.LoadAsync(cancellationToken);
-                break;
-            case TransactionsListViewModel transactions:
-                await transactions.LoadAsync(cancellationToken);
-                break;
-            case ExchangeRatesViewModel rates:
-                await rates.LoadAsync(cancellationToken);
-                break;
+            await loadable.LoadCommand.ExecuteAsync(null);
+        }
+    }
+
+    [RelayCommand]
+    private void ChangePassword()
+    {
+        var changePassword = _services.GetRequiredService<ChangePasswordViewModel>();
+        if (_dialog.ShowDialog(changePassword))
+        {
+            _dialog.ShowInfo("Зміна пароля", "Пароль успішно змінено.");
         }
     }
 

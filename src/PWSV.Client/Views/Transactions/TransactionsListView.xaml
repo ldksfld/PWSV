@@ -11,6 +11,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -28,6 +29,8 @@
                         Style="{StaticResource SecondaryButtonStyle}" />
                 <Button Content="⇄ Переказ" Command="{Binding AddTransferCommand}"
                         Style="{StaticResource SecondaryButtonStyle}" />
+                <Button Content="Редагувати" Command="{Binding EditCommand}"
+                        Style="{StaticResource SecondaryButtonStyle}" />
                 <Button Content="Видалити" Command="{Binding DeleteCommand}"
                         Style="{StaticResource DangerButtonStyle}" />
                 <Button Content="↻ Оновити" Command="{Binding LoadCommand}"
@@ -35,23 +38,92 @@
             </StackPanel>
         </Border>
 
-        <Border Grid.Row="2" Style="{StaticResource ErrorBannerStyle}"
+        <Border Grid.Row="2" Style="{StaticResource ToolbarBorderStyle}" Padding="16,12,16,16">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0" LastChildFill="False">
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                        <TextBlock Text="&#xE71C;" FontFamily="{StaticResource IconFontFamily}" FontSize="14"
+                                   Foreground="{StaticResource PrimaryBrush}" Margin="0,0,8,0" />
+                        <TextBlock Text="Фільтри" FontSize="{StaticResource FontSizeLarge}" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                        <Border Margin="10,0,0,0" Padding="8,2" CornerRadius="6" VerticalAlignment="Center"
+                                Background="{StaticResource PrimarySoftBrush}"
+                                Visibility="{Binding IsFilterApplied, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="застосовано" Foreground="{StaticResource PrimaryBrush}"
+                                       FontSize="11" FontWeight="SemiBold" />
+                        </Border>
+                    </StackPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button Content="Скинути" Command="{Binding ResetFiltersCommand}"
+                                Style="{StaticResource GhostButtonStyle}" />
+                        <Button Content="Застосувати" Command="{Binding ApplyFiltersCommand}" Margin="0" />
+                    </StackPanel>
+                </DockPanel>
+
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="150" />
+                        <ColumnDefinition Width="*" MinWidth="150" />
+                        <ColumnDefinition Width="1.3*" />
+                        <ColumnDefinition Width="1.6*" />
+                        <ColumnDefinition Width="*" MinWidth="120" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                        <TextBlock Text="Дата від" Style="{StaticResource LabelTextStyle}" />
+                        <DatePicker SelectedDate="{Binding FilterFrom}" Margin="0" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                        <TextBlock Text="Дата до" Style="{StaticResource LabelTextStyle}" />
+                        <DatePicker SelectedDate="{Binding FilterTo}" Margin="0" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Margin="0,0,12,0">
+                        <TextBlock Text="Рахунок" Style="{StaticResource LabelTextStyle}" />
+                        <ComboBox ItemsSource="{Binding AccountOptions}"
+                                  SelectedItem="{Binding SelectedAccountOption}"
+                                  DisplayMemberPath="DisplayName" Margin="0" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="3" Margin="0,0,12,0">
+                        <TextBlock Text="Категорія" Style="{StaticResource LabelTextStyle}" />
+                        <ComboBox ItemsSource="{Binding CategoryOptions}"
+                                  SelectedItem="{Binding SelectedCategoryOption}"
+                                  DisplayMemberPath="DisplayName" Margin="0" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="4">
+                        <TextBlock Text="Тип" Style="{StaticResource LabelTextStyle}" />
+                        <ComboBox ItemsSource="{Binding KindOptions}"
+                                  SelectedItem="{Binding SelectedKindOption}"
+                                  DisplayMemberPath="DisplayName" Margin="0" />
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="3" Style="{StaticResource ErrorBannerStyle}"
                 Visibility="{Binding ErrorMessage, Converter={StaticResource BoolToVis}}">
             <TextBlock Text="{Binding ErrorMessage}"
                        Foreground="{StaticResource ErrorHoverBrush}"
                        TextWrapping="Wrap" />
         </Border>
 
-        <Border Grid.Row="3" Style="{StaticResource CardBorderStyle}" Padding="0">
+        <Border Grid.Row="4" Style="{StaticResource CardBorderStyle}" Padding="0">
             <DataGrid ItemsSource="{Binding Transactions}"
                       SelectedItem="{Binding SelectedTransaction}"
+                      MouseDoubleClick="OnRowDoubleClick"
                       BorderThickness="0">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="ДАТА" Binding="{Binding OccurredAt, StringFormat=\{0:yyyy-MM-dd HH:mm\}}" Width="160" />
-                    <DataGridTextColumn Header="ТИП" Binding="{Binding Kind, Converter={StaticResource TxKind}}" Width="100" />
-                    <DataGridTextColumn Header="РАХУНОК" Binding="{Binding AccountName}" Width="200" />
-                    <DataGridTextColumn Header="КАТЕГОРІЯ" Binding="{Binding CategoryName}" Width="200" />
-                    <DataGridTextColumn Header="СУМА" Binding="{Binding Amount, Converter={StaticResource MoneyFmt}}" Width="140">
+                    <DataGridTextColumn Header="ДАТА" Binding="{Binding OccurredAt, StringFormat=\{0:yyyy-MM-dd HH:mm\}}" Width="150" />
+                    <DataGridTextColumn Header="ТИП" Binding="{Binding Converter={StaticResource TxKind}}" Width="180" />
+                    <DataGridTextColumn Header="РАХУНОК" Binding="{Binding AccountName}" Width="*" MinWidth="70"
+                                        ElementStyle="{StaticResource TrimmedCellTextStyle}" />
+                    <DataGridTextColumn Header="КАТЕГОРІЯ" Binding="{Binding CategoryName}" Width="1.3*" MinWidth="90"
+                                        ElementStyle="{StaticResource TrimmedCellTextStyle}" />
+                    <DataGridTextColumn Header="СУМА" Binding="{Binding Amount, Converter={StaticResource MoneyFmt}}" Width="120">
                         <DataGridTextColumn.ElementStyle>
                             <Style TargetType="TextBlock">
                                 <Setter Property="FontWeight" Value="SemiBold" />
@@ -60,23 +132,43 @@
                             </Style>
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
-                    <DataGridTextColumn Header="КОНТРАГЕНТ" Binding="{Binding Counterparty}" Width="*" />
+                    <DataGridTextColumn Header="КОНТРАГЕНТ" Binding="{Binding Counterparty}" Width="*" MinWidth="70"
+                                        ElementStyle="{StaticResource TrimmedCellTextStyle}" />
+                    <DataGridTextColumn Header="ОПИС" Binding="{Binding Description}" Width="1.3*" MinWidth="80"
+                                        ElementStyle="{StaticResource TrimmedCellTextStyle}" />
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
 
-        <Border Grid.Row="4" Background="{StaticResource SurfaceAltBrush}"
+        <Border Grid.Row="5" Background="{StaticResource SurfaceAltBrush}"
                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                CornerRadius="8" Padding="14,8" Margin="0,12,0,0">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="Всього записів:"
-                           Foreground="{StaticResource TextSecondaryBrush}"
-                           VerticalAlignment="Center" />
-                <TextBlock Text="{Binding TotalCount}"
-                           Foreground="{StaticResource PrimaryBrush}"
-                           FontWeight="SemiBold" Margin="6,0,0,0"
-                           VerticalAlignment="Center" />
-            </StackPanel>
+                CornerRadius="8" Padding="14,6" Margin="0,12,0,0">
+            <DockPanel LastChildFill="False">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                    <TextBlock Text="Всього записів:"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding TotalCount}"
+                               Foreground="{StaticResource PrimaryBrush}"
+                               FontWeight="SemiBold" Margin="6,0,0,0"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Command="{Binding PreviousPageCommand}"
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="Попередня сторінка" AutomationProperties.Name="Попередня сторінка">
+                        <TextBlock Text="&#xE76B;" FontFamily="{StaticResource IconFontFamily}" FontSize="12" />
+                    </Button>
+                    <TextBlock Text="{Binding PageDisplay}"
+                               Foreground="{StaticResource TextPrimaryBrush}" FontWeight="Medium"
+                               VerticalAlignment="Center" Margin="4,0,12,0" />
+                    <Button Style="{StaticResource IconButtonStyle}" Margin="0"
+                            Command="{Binding NextPageCommand}"
+                            ToolTip="Наступна сторінка" AutomationProperties.Name="Наступна сторінка">
+                        <TextBlock Text="&#xE76C;" FontFamily="{StaticResource IconFontFamily}" FontSize="12" />
+                    </Button>
+                </StackPanel>
+            </DockPanel>
         </Border>
     </Grid>
 </UserControl>

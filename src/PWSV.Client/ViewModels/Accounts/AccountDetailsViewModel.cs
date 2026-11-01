@@ -7,7 +7,7 @@ using PWSV.Client.Services.Interfaces;
 
 namespace PWSV.Client.ViewModels.Accounts;
 
-public sealed partial class AccountDetailsViewModel(IApiClient api, INavigationService navigation) : ViewModelBase
+public sealed partial class AccountDetailsViewModel(IApiClient api, INavigationService navigation) : ViewModelBase, ILoadableViewModel
 {
     [ObservableProperty]
     private int _accountId;
@@ -16,12 +16,6 @@ public sealed partial class AccountDetailsViewModel(IApiClient api, INavigationS
     private AccountModel? _account;
 
     public ObservableCollection<TransactionModel> RecentTransactions { get; } = [];
-
-    public async Task InitializeAsync(int accountId, CancellationToken cancellationToken)
-    {
-        AccountId = accountId;
-        await LoadAsync(cancellationToken);
-    }
 
     [RelayCommand(CanExecute = nameof(CanExecuteCommands))]
     private async Task LoadAsync(CancellationToken cancellationToken)
@@ -33,9 +27,9 @@ public sealed partial class AccountDetailsViewModel(IApiClient api, INavigationS
             var details = await api.GetAccountAsync(AccountId, cancellationToken);
             Account = details.Account;
             RecentTransactions.Clear();
-            foreach (var tx in details.RecentTransactions)
+            foreach (var transaction in details.RecentTransactions)
             {
-                RecentTransactions.Add(tx);
+                RecentTransactions.Add(transaction);
             }
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)

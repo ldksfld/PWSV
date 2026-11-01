@@ -1,0 +1,45 @@
+<Window x:Class="PWSV.Client.Views.MessageDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="440" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="{StaticResource BackgroundBrush}">
+    <Border Padding="24">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <DockPanel Grid.Row="0">
+                <Border x:Name="IconBadge" DockPanel.Dock="Left"
+                        Width="40" Height="40" CornerRadius="10"
+                        Margin="0,0,16,0" VerticalAlignment="Top">
+                    <TextBlock x:Name="IconGlyph"
+                               FontFamily="{StaticResource IconFontFamily}" FontSize="18"
+                               HorizontalAlignment="Center" />
+                </Border>
+                <StackPanel>
+                    <TextBlock x:Name="HeadingText"
+                               FontSize="{StaticResource FontSizeXLarge}" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               TextWrapping="Wrap" Margin="0,0,0,6" />
+                    <TextBlock x:Name="MessageText"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </DockPanel>
+
+            <Border Grid.Row="1" BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,1,0,0" Margin="0,20,0,0" Padding="0,16,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="CancelButton" Content="Скасувати" Click="OnCancelClick"
+                            Style="{StaticResource SecondaryButtonStyle}" IsCancel="True" />
+                    <Button x:Name="ConfirmButton" Click="OnConfirmClick"
+                            IsDefault="True" Margin="0" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

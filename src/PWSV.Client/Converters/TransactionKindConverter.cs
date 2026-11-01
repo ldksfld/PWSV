@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows.Data;
+using PWSV.Client.Models;
 
 namespace PWSV.Client.Converters;
 
@@ -7,12 +8,18 @@ public sealed class TransactionKindConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        return (value as string) switch
+        if (value is TransactionModel { Kind: "Transfer" } transfer)
+        {
+            return transfer.Direction == "Outgoing" ? "Переказ (списання)" : "Переказ (зарахування)";
+        }
+
+        var kind = value is TransactionModel transaction ? transaction.Kind : value as string;
+        return kind switch
         {
             "Income" => "Дохід",
             "Expense" => "Витрата",
             "Transfer" => "Переказ",
-            _ => value ?? string.Empty
+            _ => kind ?? string.Empty
         };
     }
 

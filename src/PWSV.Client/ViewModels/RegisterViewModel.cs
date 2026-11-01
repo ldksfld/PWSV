@@ -9,26 +9,27 @@ namespace PWSV.Client.ViewModels;
 public sealed partial class RegisterViewModel(IApiClient api, ITokenStorage tokenStorage, INavigationService navigation) : ViewModelBase
 {
     [ObservableProperty]
-    [Required]
-    [MinLength(3)]
-    [MaxLength(64)]
+    [Required(ErrorMessage = "Ім'я користувача обов'язкове.")]
+    [MinLength(3, ErrorMessage = "Ім'я користувача має містити не менше 3 символів.")]
+    [MaxLength(64, ErrorMessage = "Ім'я користувача має містити не більше 64 символів.")]
     private string _username = string.Empty;
 
     [ObservableProperty]
-    [Required]
-    [MinLength(8)]
-    [MaxLength(128)]
+    [Required(ErrorMessage = "Пароль обов'язковий.")]
+    [MinLength(8, ErrorMessage = "Пароль має містити не менше 8 символів.")]
+    [MaxLength(128, ErrorMessage = "Пароль має містити не більше 128 символів.")]
     [RegularExpression(
-        @"(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+",
-        ErrorMessage = "Має містити нижній, верхній регістр та цифру.")]
+        @"(?=.*\p{Ll})(?=.*\p{Lu})(?=.*[0-9]).+",
+        ErrorMessage = "Пароль має містити малу й велику літери та цифру.")]
     private string _password = string.Empty;
 
     [ObservableProperty]
     private string _confirmPassword = string.Empty;
 
     [ObservableProperty]
-    [Required]
-    [MinLength(8)]
+    [Required(ErrorMessage = "Майстер-пароль обов'язковий.")]
+    [MinLength(8, ErrorMessage = "Майстер-пароль має містити не менше 8 символів.")]
+    [MaxLength(256, ErrorMessage = "Майстер-пароль має містити не більше 256 символів.")]
     private string _masterPassword = string.Empty;
 
     [ObservableProperty]
@@ -38,30 +39,27 @@ public sealed partial class RegisterViewModel(IApiClient api, ITokenStorage toke
     private async Task RegisterAsync(CancellationToken cancellationToken)
     {
         ClearError();
-        ValidateAllProperties();
+        if (!TryValidate())
+        {
+            return;
+        }
 
         if (Password != ConfirmPassword)
         {
-            ErrorMessage = "Паролі не співпадають.";
+            ErrorMessage = "Паролі не збігаються.";
             return;
         }
 
         if (MasterPassword != ConfirmMasterPassword)
         {
-            ErrorMessage = "Мастер-паролі не співпадають.";
-            return;
-        }
-
-        if (HasErrors)
-        {
-            ErrorMessage = "Перевірте коректність полів.";
+            ErrorMessage = "Майстер-паролі не збігаються.";
             return;
         }
 
         try
         {
             IsBusy = true;
-            var response = await api.RegisterAsync(Username, Password, MasterPassword, cancellationToken);
+            var response = await api.RegisterAsync(Username.Trim(), Password, MasterPassword, cancellationToken);
             tokenStorage.Set(response.UserId, response.Username, response.AccessToken, response.ExpiresAt);
             navigation.NavigateTo<MainViewModel>();
         }

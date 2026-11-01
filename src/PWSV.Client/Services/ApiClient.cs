@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -18,7 +19,7 @@ public sealed class ApiClient(IHttpClientFactory factory) : IApiClient
         {
             new JsonStringEnumConverter(),
             new MoneyJsonConverter(),
-            new NullableMoneyJsonConverter()
+            new LocalDateTimeJsonConverter()
         }
     };
 
@@ -122,9 +123,10 @@ public sealed class ApiClient(IHttpClientFactory factory) : IApiClient
         int id,
         string name,
         int? parentCategoryId,
+        bool isActive,
         CancellationToken cancellationToken)
     {
-        var body = new { id, name, parentCategoryId };
+        var body = new { id, name, parentCategoryId, isActive };
         return SendAsync<CategoryModel>(HttpMethod.Put, $"/api/v1/categories/{id}", body, cancellationToken);
     }
 
@@ -219,11 +221,11 @@ public sealed class ApiClient(IHttpClientFactory factory) : IApiClient
         }
         if (from.HasValue)
         {
-            url += $"&from={from.Value:o}";
+            url += $"&from={FormatQueryDate(from.Value)}";
         }
         if (to.HasValue)
         {
-            url += $"&to={to.Value:o}";
+            url += $"&to={FormatQueryDate(to.Value)}";
         }
 
         return GetAsync<PagedResultModel<TransactionModel>>(url, cancellationToken);
@@ -368,4 +370,7 @@ public sealed class ApiClient(IHttpClientFactory factory) : IApiClient
 
         throw new ApiException((int)response.StatusCode, problem);
     }
+
+    private static string FormatQueryDate(DateTime value) =>
+        Uri.EscapeDataString(value.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture));
 }

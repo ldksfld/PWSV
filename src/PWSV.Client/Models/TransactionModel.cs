@@ -8,6 +8,7 @@ public sealed record TransactionModel
     public int? CategoryId { get; init; }
     public string? CategoryName { get; init; }
     public string Kind { get; init; } = string.Empty;
+    public string Direction { get; init; } = string.Empty;
     public decimal Amount { get; init; }
     public DateTime OccurredAt { get; init; }
     public string? Description { get; init; }

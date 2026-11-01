@@ -14,6 +14,7 @@
         xmlns:vex="clr-namespace:PWSV.Client.Views.ExchangeRates"
         xmlns:vtx="clr-namespace:PWSV.Client.Views.Transactions"
         Title="Personal Wealth &amp; Security Vault"
+        AutomationProperties.Name="Personal Wealth &amp; Security Vault"
         Width="1280" Height="800" MinWidth="1100" MinHeight="700"
         WindowStartupLocation="CenterScreen"
         UseLayoutRounding="True"
@@ -70,6 +71,11 @@
                                                    Margin="0,2,0,0" />
                                     </StackPanel>
                                 </Border>
+                                <Button Content="Змінити пароль"
+                                        Command="{Binding ChangePasswordCommand}"
+                                        Style="{StaticResource SidebarOutlineButtonStyle}"
+                                        HorizontalAlignment="Stretch"
+                                        Margin="0,0,0,8" />
                                 <Button Content="Вийти"
                                         Command="{Binding LogoutCommand}"
                                         Style="{StaticResource SidebarOutlineButtonStyle}"

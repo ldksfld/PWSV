@@ -43,7 +43,7 @@
                 <PasswordBox x:Name="PasswordBox" PasswordChar="•" TabIndex="1"
                              PasswordChanged="PasswordBox_OnPasswordChanged" />
 
-                <TextBlock Text="Мастер-пароль (для розшифрування даних)"
+                <TextBlock Text="Майстер-пароль (для розшифрування даних)"
                            Style="{StaticResource LabelTextStyle}" />
                 <PasswordBox x:Name="MasterPasswordBox" PasswordChar="•" TabIndex="2"
                              PasswordChanged="MasterPasswordBox_OnPasswordChanged" />

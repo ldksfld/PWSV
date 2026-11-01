@@ -38,8 +38,8 @@
   <data name="Username" xml:space="preserve"><value>Ім'я користувача</value></data>
   <data name="Password" xml:space="preserve"><value>Пароль</value></data>
   <data name="ConfirmPassword" xml:space="preserve"><value>Підтвердження пароля</value></data>
-  <data name="MasterPassword" xml:space="preserve"><value>Мастер-пароль</value></data>
-  <data name="ConfirmMasterPassword" xml:space="preserve"><value>Підтвердження мастер-пароля</value></data>
+  <data name="MasterPassword" xml:space="preserve"><value>Майстер-пароль</value></data>
+  <data name="ConfirmMasterPassword" xml:space="preserve"><value>Підтвердження майстер-пароля</value></data>
   <data name="Accounts" xml:space="preserve"><value>Рахунки</value></data>
   <data name="Categories" xml:space="preserve"><value>Категорії</value></data>
   <data name="Currencies" xml:space="preserve"><value>Валюти</value></data>

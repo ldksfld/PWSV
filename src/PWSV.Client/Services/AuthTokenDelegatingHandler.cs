@@ -19,7 +19,7 @@ public sealed class AuthTokenDelegatingHandler(ITokenStorage tokenStorage) : Del
 
         if (response.StatusCode == HttpStatusCode.Unauthorized && tokenAttached)
         {
-            tokenStorage.Clear();
+            tokenStorage.Clear("Сеанс завершено. Увійдіть повторно з паролем і майстер-паролем.");
         }
 
         return response;

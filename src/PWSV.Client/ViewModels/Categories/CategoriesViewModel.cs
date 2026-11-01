@@ -1,64 +1,44 @@
 using System.Collections.ObjectModel;
-using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using PWSV.Client.Models;
 using PWSV.Client.Services;
 using PWSV.Client.Services.Interfaces;
-using PWSV.Client.Views.Categories;
 
 namespace PWSV.Client.ViewModels.Categories;
 
-public sealed partial class CategoriesViewModel : ViewModelBase
+public sealed partial class CategoriesViewModel(
+    IApiClient api,
+    IDialogService dialog,
+    IServiceProvider services) : ViewModelBase, ILoadableViewModel
 {
-    private readonly IApiClient _api;
-    private readonly IDialogService _dialog;
-    private readonly IServiceProvider _services;
-    private CancellationTokenSource? _loadCts;
-
-    public CategoriesViewModel(IApiClient api, IDialogService dialog, IServiceProvider services)
-    {
-        _api = api;
-        _dialog = dialog;
-        _services = services;
-        _ = LoadAsync(CancellationToken.None);
-    }
-
     public ObservableCollection<CategoryTreeNodeModel> Tree { get; } = [];
 
     [ObservableProperty]
     private bool _includeInactive;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(EditCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeactivateCommand))]
     private CategoryTreeNodeModel? _selectedNode;
 
     [RelayCommand(CanExecute = nameof(CanExecuteCommands))]
-    public async Task LoadAsync(CancellationToken cancellationToken)
+    private async Task LoadAsync(CancellationToken cancellationToken)
     {
-        _loadCts?.Cancel();
-        _loadCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var token = _loadCts.Token;
-
         try
         {
             IsBusy = true;
             ClearError();
-            var tree = await _api.GetCategoryTreeAsync(IncludeInactive, token);
-            if (token.IsCancellationRequested)
-            {
-                return;
-            }
+            var tree = await api.GetCategoryTreeAsync(IncludeInactive, cancellationToken);
 
             Tree.Clear();
             foreach (var node in tree)
             {
                 Tree.Add(node);
             }
-        }
-        catch (OperationCanceledException)
-        {
-            return;
+
+            SelectedNode = null;
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
         {
@@ -80,10 +60,10 @@ public sealed partial class CategoriesViewModel : ViewModelBase
 
     private async Task OpenAddAsync(string kind, CancellationToken cancellationToken)
     {
-        var vm = _services.GetRequiredService<CategoryEditViewModel>();
-        await vm.InitializeForCreateAsync(kind, cancellationToken);
-        var dialog = new CategoryEditDialog(vm) { Owner = Application.Current.MainWindow };
-        if (dialog.ShowDialog() == true)
+        var parentId = SelectedNode is { IsActive: true } node && node.Kind == kind ? node.Id : (int?)null;
+        var editor = services.GetRequiredService<CategoryEditViewModel>();
+        await editor.InitializeForCreateAsync(kind, parentId, cancellationToken);
+        if (dialog.ShowDialog(editor))
         {
             await LoadAsync(cancellationToken);
         }
@@ -97,16 +77,15 @@ public sealed partial class CategoriesViewModel : ViewModelBase
             return;
         }
 
-        var vm = _services.GetRequiredService<CategoryEditViewModel>();
-        await vm.InitializeForEditAsync(SelectedNode.Id, SelectedNode.Name, SelectedNode.Kind, cancellationToken);
-        var dialog = new CategoryEditDialog(vm) { Owner = Application.Current.MainWindow };
-        if (dialog.ShowDialog() == true)
+        var editor = services.GetRequiredService<CategoryEditViewModel>();
+        await editor.InitializeForEditAsync(SelectedNode, cancellationToken);
+        if (dialog.ShowDialog(editor))
         {
             await LoadAsync(cancellationToken);
         }
     }
 
-    [RelayCommand(CanExecute = nameof(CanModifySelected))]
+    [RelayCommand(CanExecute = nameof(CanDeactivateSelected))]
     private async Task DeactivateAsync(CancellationToken cancellationToken)
     {
         if (SelectedNode is null)
@@ -114,7 +93,10 @@ public sealed partial class CategoriesViewModel : ViewModelBase
             return;
         }
 
-        if (!_dialog.Confirm("Підтвердження", $"Деактивувати категорію '{SelectedNode.Name}'?"))
+        var message = SelectedNode.Children.Count > 0
+            ? $"Деактивувати категорію '{SelectedNode.Name}' разом з усіма підкатегоріями?"
+            : $"Деактивувати категорію '{SelectedNode.Name}'?";
+        if (!dialog.Confirm("Підтвердження", message))
         {
             return;
         }
@@ -123,35 +105,32 @@ public sealed partial class CategoriesViewModel : ViewModelBase
         {
             IsBusy = true;
             ClearError();
-            await _api.DeactivateCategoryAsync(SelectedNode.Id, cancellationToken);
-            await LoadAsync(cancellationToken);
+            await api.DeactivateCategoryAsync(SelectedNode.Id, cancellationToken);
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
         {
             SetErrorFromException(ex);
+            return;
         }
         finally
         {
             IsBusy = false;
         }
+
+        await LoadAsync(cancellationToken);
     }
 
     private bool CanExecuteCommands() => !IsBusy;
     private bool CanModifySelected() => !IsBusy && SelectedNode is not null;
+    private bool CanDeactivateSelected() => CanModifySelected() && SelectedNode!.IsActive;
 
-    partial void OnIncludeInactiveChanged(bool value) => _ = LoadAsync(CancellationToken.None);
+    partial void OnIncludeInactiveChanged(bool value) => LoadCommand.Execute(null);
 
     protected override void OnIsBusyChanged(bool value)
     {
         LoadCommand.NotifyCanExecuteChanged();
         AddIncomeCommand.NotifyCanExecuteChanged();
         AddExpenseCommand.NotifyCanExecuteChanged();
-        EditCommand.NotifyCanExecuteChanged();
-        DeactivateCommand.NotifyCanExecuteChanged();
-    }
-
-    partial void OnSelectedNodeChanged(CategoryTreeNodeModel? value)
-    {
         EditCommand.NotifyCanExecuteChanged();
         DeactivateCommand.NotifyCanExecuteChanged();
     }

@@ -58,6 +58,7 @@ public interface IApiClient
         int id,
         string name,
         int? parentCategoryId,
+        bool isActive,
         CancellationToken cancellationToken);
 
     Task DeactivateCategoryAsync(int id, CancellationToken cancellationToken);

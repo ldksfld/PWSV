@@ -63,15 +63,14 @@ public partial class App : Application
             .ConfigureServices(ConfigureServices)
             .Build();
 
+        var dialogService = _host.Services.GetRequiredService<IDialogService>();
         DispatcherUnhandledException += (_, args) =>
         {
             Log.Error(args.Exception, "Unhandled UI exception");
             var details = args.Exception.Message;
-            MessageBox.Show(
-                $"Виникла неочікувана помилка:\n\n{details}\n\nДеталі — у файлі логів.",
+            dialogService.ShowError(
                 "Помилка",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+                $"Виникла неочікувана помилка:\n\n{details}\n\nДеталі — у файлі логів.");
             args.Handled = true;
         };
 
@@ -98,7 +97,14 @@ public partial class App : Application
                 return;
             }
 
-            Dispatcher.Invoke(() => navigation.NavigateTo<LoginViewModel>());
+            Dispatcher.Invoke(() =>
+            {
+                navigation.NavigateTo<LoginViewModel>();
+                if (navigation.CurrentViewModel is LoginViewModel login)
+                {
+                    login.ErrorMessage = tokenStorage.SignOutReason;
+                }
+            });
         };
         navigation.NavigateTo<LoginViewModel>();
 
@@ -138,6 +144,7 @@ public partial class App : Application
         services.AddTransient<ViewModels.Accounts.AccountEditViewModel>();
         services.AddTransient<ViewModels.Categories.CategoryEditViewModel>();
         services.AddTransient<ViewModels.Transactions.TransactionEditViewModel>();
+        services.AddTransient<ChangePasswordViewModel>();
 
         services.AddSingleton<MainWindow>();
     }

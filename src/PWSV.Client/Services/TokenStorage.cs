@@ -8,6 +8,7 @@ public sealed class TokenStorage : ITokenStorage
     public DateTime? ExpiresAt { get; private set; }
     public int? UserId { get; private set; }
     public string? Username { get; private set; }
+    public string? SignOutReason { get; private set; }
 
     public bool IsAuthenticated => AccessToken is not null && ExpiresAt > DateTime.UtcNow;
 
@@ -15,6 +16,7 @@ public sealed class TokenStorage : ITokenStorage
 
     public void Set(int userId, string username, string accessToken, DateTime expiresAt)
     {
+        SignOutReason = null;
         UserId = userId;
         Username = username;
         AccessToken = accessToken;
@@ -27,8 +29,9 @@ public sealed class TokenStorage : ITokenStorage
         AuthenticationChanged?.Invoke();
     }
 
-    public void Clear()
+    public void Clear(string? reason = null)
     {
+        SignOutReason = reason;
         AccessToken = null;
         ExpiresAt = null;
         UserId = null;

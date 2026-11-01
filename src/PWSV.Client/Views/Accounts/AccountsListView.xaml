@@ -44,7 +44,7 @@
                     <DataGridTextColumn Header="НАЗВА" Binding="{Binding Name}" Width="*" />
                     <DataGridTextColumn Header="ТИП" Binding="{Binding AccountTypeName}" Width="180" />
                     <DataGridTextColumn Header="ВАЛЮТА" Binding="{Binding CurrencyCode}" Width="100" />
-                    <DataGridTextColumn Header="БАЛАНС" Binding="{Binding Balance, Converter={StaticResource MoneyFmt}}" Width="160">
+                    <DataGridTextColumn Header="БАЛАНС" Binding="{Binding Balance, Converter={StaticResource MoneyFmt}}" Width="200">
                         <DataGridTextColumn.ElementStyle>
                             <Style TargetType="TextBlock">
                                 <Setter Property="FontWeight" Value="SemiBold" />

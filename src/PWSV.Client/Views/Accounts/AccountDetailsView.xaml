@@ -75,7 +75,7 @@
                                    Foreground="{StaticResource TextSecondaryBrush}" Margin="0,4" />
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AccountNumber}"
                                    Foreground="{StaticResource TextPrimaryBrush}" Margin="0,4" />
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Статус"
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Активний"
                                    Foreground="{StaticResource TextSecondaryBrush}" Margin="0,4" />
                         <TextBlock Grid.Row="1" Grid.Column="1"
                                    Text="{Binding IsActive, Converter={StaticResource BoolToYesNo}}"
@@ -113,7 +113,7 @@
                 <DataGrid ItemsSource="{Binding RecentTransactions}" BorderThickness="0">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="ДАТА" Binding="{Binding OccurredAt, StringFormat=\{0:yyyy-MM-dd HH:mm\}}" Width="160" />
-                        <DataGridTextColumn Header="ТИП" Binding="{Binding Kind, Converter={StaticResource TxKind}}" Width="100" />
+                        <DataGridTextColumn Header="ТИП" Binding="{Binding Converter={StaticResource TxKind}}" Width="180" />
                         <DataGridTextColumn Header="КАТЕГОРІЯ" Binding="{Binding CategoryName}" Width="*" />
                         <DataGridTextColumn Header="СУМА" Binding="{Binding Amount, Converter={StaticResource MoneyFmt}}" Width="140">
                             <DataGridTextColumn.ElementStyle>
