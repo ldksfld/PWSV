@@ -1,4 +1,6 @@
+using System.Globalization;
 using FluentAssertions;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PWSV.Domain.Entities;
@@ -134,6 +136,140 @@ public sealed class TriggerBehaviorTests : IAsyncLifetime
 
         sourceAccount.Balance.Should().Be(-200m);
         destinationAccount.Balance.Should().Be(200m);
+    }
+
+    [Fact]
+    public async Task DeletingAccountWithTransactions_IsRejectedByTrigger()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var (_, account, incomeCategory) = await SeedAsync(db);
+        db.Transactions.Add(new Transaction
+        {
+            AccountId = account.Id,
+            CategoryId = incomeCategory.Id,
+            Kind = TransactionKind.Income,
+            Amount = 10m,
+            OccurredAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var act = () => db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM dbo.Accounts WHERE Id = {account.Id}");
+
+        await act.Should().ThrowAsync<SqlException>()
+            .WithMessage("*Неможливо видалити рахунок*");
+        (await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == account.Id)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DeletingAccountWithoutTransactions_IsAllowedByTrigger()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var (_, account, _) = await SeedAsync(db);
+
+        await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM dbo.Accounts WHERE Id = {account.Id}");
+
+        (await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == account.Id)).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task InsertingNonPositiveAmount_ViolatesCheckConstraint(decimal amount)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var (_, account, incomeCategory) = await SeedAsync(db);
+        db.Transactions.Add(new Transaction
+        {
+            AccountId = account.Id,
+            CategoryId = incomeCategory.Id,
+            Kind = TransactionKind.Income,
+            Amount = amount,
+            OccurredAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        var act = () => db.SaveChangesAsync();
+
+        await act.Should().ThrowAsync<DbUpdateException>()
+            .Where(e => e.InnerException!.Message.Contains("CK_Transactions_Amount"));
+    }
+
+    [Fact]
+    public async Task AuditEntries_RecordInsertUpdateAndDeleteWithRealKeys()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var (user, _, _) = await SeedAsync(db);
+        var category = new Category
+        {
+            UserId = user.Id,
+            Name = "Подарунки",
+            Kind = CategoryKind.Income,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Categories.Add(category);
+        await db.SaveChangesAsync();
+
+        category.Name = "Подарунки від родини";
+        await db.SaveChangesAsync();
+
+        db.Categories.Remove(category);
+        await db.SaveChangesAsync();
+
+        var key = category.Id.ToString(CultureInfo.InvariantCulture);
+        var actions = await db.AuditEntries.AsNoTracking()
+            .Where(a => a.EntityName == nameof(Category) && a.EntityKey == key)
+            .OrderBy(a => a.Id)
+            .Select(a => a.Action)
+            .ToListAsync();
+
+        actions.Should().Equal("INSERT", "UPDATE", "DELETE");
+    }
+
+    [Fact]
+    public async Task DeletingTransferLegsInHandlerOrder_RestoresBothBalances()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var (user, source, _) = await SeedAsync(db);
+        var destination = new Account
+        {
+            UserId = user.Id,
+            Name = "Savings",
+            AccountTypeId = source.AccountTypeId,
+            CurrencyId = source.CurrencyId,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Accounts.Add(destination);
+        await db.SaveChangesAsync();
+
+        var sourceTx = new Transaction { AccountId = source.Id, Kind = TransactionKind.Transfer, Amount = 200m, OccurredAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow };
+        db.Transactions.Add(sourceTx);
+        await db.SaveChangesAsync();
+        var destinationTx = new Transaction { AccountId = destination.Id, Kind = TransactionKind.Transfer, Amount = 200m, OccurredAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow, LinkedTransactionId = sourceTx.Id };
+        db.Transactions.Add(destinationTx);
+        await db.SaveChangesAsync();
+        sourceTx.LinkedTransactionId = destinationTx.Id;
+        await db.SaveChangesAsync();
+
+        sourceTx.LinkedTransactionId = null;
+        await db.SaveChangesAsync();
+        db.Transactions.RemoveRange(destinationTx, sourceTx);
+        await db.SaveChangesAsync();
+
+        (await db.Accounts.AsNoTracking().SingleAsync(a => a.Id == source.Id)).Balance.Should().Be(0m);
+        (await db.Accounts.AsNoTracking().SingleAsync(a => a.Id == destination.Id)).Balance.Should().Be(0m);
     }
 
     private static async Task<(User user, Account account, Category incomeCategory)> SeedAsync(ApplicationDbContext db)

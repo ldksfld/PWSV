@@ -1,6 +1,5 @@
 using System.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using PWSV.Application.Common.Interfaces;
 using PWSV.Domain.Entities;
 
@@ -22,8 +21,19 @@ public sealed class TestApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<KeyDerivationConfig> KeyDerivationConfigs => Set<KeyDerivationConfig>();
 
-    public Task<IDbContextTransaction> BeginTransactionAsync(IsolationLevel isolationLevel, CancellationToken cancellationToken)
+    public Task LockAccountsAsync(IEnumerable<int> accountIds, CancellationToken cancellationToken)
     {
-        return Database.BeginTransactionAsync(cancellationToken);
+        return Task.CompletedTask;
+    }
+
+    public async Task<TResult> ExecuteInTransactionAsync<TResult>(
+        Func<CancellationToken, Task<TResult>> operation,
+        IsolationLevel isolationLevel,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = await Database.BeginTransactionAsync(cancellationToken);
+        var result = await operation(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return result;
     }
 }

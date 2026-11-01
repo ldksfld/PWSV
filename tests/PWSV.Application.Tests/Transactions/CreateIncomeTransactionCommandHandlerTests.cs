@@ -69,6 +69,73 @@ public sealed class CreateIncomeTransactionCommandHandlerTests
         await act.Should().ThrowAsync<CategoryTypeMismatchException>();
     }
 
+    [Fact]
+    public async Task Handle_WithInactiveCategory_ThrowsConflict()
+    {
+        await using var db = CreateContext();
+        Seed(db);
+        await db.SaveChangesAsync();
+        var category = await db.Categories.SingleAsync();
+        category.IsActive = false;
+        await db.SaveChangesAsync();
+
+        var act = () => BuildHandler(db).Handle(
+            new CreateIncomeTransactionCommand(1, 1, 50m, DateTime.UtcNow, null, null),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<ConflictException>();
+    }
+
+    [Fact]
+    public async Task Handle_WithAmountBeyondCurrencyPrecision_ThrowsAmountPrecision()
+    {
+        await using var db = CreateContext();
+        Seed(db);
+        await db.SaveChangesAsync();
+
+        var act = () => BuildHandler(db).Handle(
+            new CreateIncomeTransactionCommand(1, 1, 10.005m, DateTime.UtcNow, null, null),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<AmountPrecisionException>();
+    }
+
+    [Fact]
+    public async Task Handle_WithAccountOfAnotherUser_ThrowsForbidden()
+    {
+        await using var db = CreateContext();
+        Seed(db);
+        await db.SaveChangesAsync();
+        var account = await db.Accounts.SingleAsync();
+        account.UserId = 2;
+        db.Users.Add(new User { Id = 2, Username = "petro", PasswordHash = "hash", CreatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+
+        var act = () => BuildHandler(db).Handle(
+            new CreateIncomeTransactionCommand(1, 1, 50m, DateTime.UtcNow, null, null),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<ForbiddenException>();
+    }
+
+    [Fact]
+    public async Task Handle_WithDescription_StoresOnlyEncryptedValue()
+    {
+        await using var db = CreateContext();
+        Seed(db);
+        await db.SaveChangesAsync();
+
+        await BuildHandler(db).Handle(
+            new CreateIncomeTransactionCommand(1, 1, 50m, DateTime.UtcNow, "  Премія за жовтень  ", "  ТОВ «Орбіта»  "),
+            CancellationToken.None);
+
+        var stored = await db.Transactions.SingleAsync();
+        stored.DescriptionCipher.Should().Equal(1);
+        stored.DescriptionNonce.Should().Equal(2);
+        stored.DescriptionTag.Should().Equal(3);
+        stored.Counterparty.Should().Be("ТОВ «Орбіта»");
+    }
+
     private static CreateIncomeTransactionCommandHandler BuildHandler(TestApplicationDbContext db)
     {
         var currentUser = Substitute.For<ICurrentUserService>();
