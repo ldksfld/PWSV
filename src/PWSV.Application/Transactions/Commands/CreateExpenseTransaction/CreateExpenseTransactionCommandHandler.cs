@@ -22,6 +22,7 @@ public sealed class CreateExpenseTransactionCommandHandler(
             ?? throw new ForbiddenException("Необхідна авторизація.");
 
         var account = await db.Accounts
+            .Include(a => a.Currency)
             .SingleOrDefaultAsync(a => a.Id == command.AccountId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new NotFoundException("Account", command.AccountId);
@@ -48,6 +49,15 @@ public sealed class CreateExpenseTransactionCommandHandler(
 
         category.EnsureMatches(TransactionKind.Expense);
 
+        if (!category.IsActive)
+        {
+            throw new ConflictException("Категорію деактивовано. Оберіть активну категорію.");
+        }
+
+        account.Currency.EnsureSupportsAmount(command.Amount);
+
+        var description = string.IsNullOrWhiteSpace(command.Description) ? null : command.Description.Trim();
+
         var transaction = new Transaction
         {
             AccountId = command.AccountId,
@@ -55,14 +65,14 @@ public sealed class CreateExpenseTransactionCommandHandler(
             Kind = TransactionKind.Expense,
             Amount = command.Amount,
             OccurredAt = command.OccurredAt,
-            Counterparty = command.Counterparty?.Trim(),
+            Counterparty = string.IsNullOrWhiteSpace(command.Counterparty) ? null : command.Counterparty.Trim(),
             CreatedAt = clock.UtcNow
         };
         transaction.EnsurePositiveAmount();
 
-        if (!string.IsNullOrWhiteSpace(command.Description))
+        if (description is not null)
         {
-            var encrypted = crypto.Encrypt(command.Description.Trim());
+            var encrypted = crypto.Encrypt(description);
             transaction.DescriptionCipher = encrypted.Cipher;
             transaction.DescriptionNonce = encrypted.Nonce;
             transaction.DescriptionTag = encrypted.Tag;
@@ -78,7 +88,6 @@ public sealed class CreateExpenseTransactionCommandHandler(
             .SingleAsync(t => t.Id == transaction.Id, cancellationToken)
             .ConfigureAwait(false);
 
-        var dto = saved.Adapt<TransactionDto>();
-        return dto with { Description = command.Description };
+        return saved.Adapt<TransactionDto>() with { Description = description };
     }
 }

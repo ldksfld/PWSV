@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using PWSV.Domain.Entities;
 
 namespace PWSV.Application.Common.Interfaces;
@@ -18,5 +17,10 @@ public interface IApplicationDbContext
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 
-    Task<IDbContextTransaction> BeginTransactionAsync(System.Data.IsolationLevel isolationLevel, CancellationToken cancellationToken);
+    Task LockAccountsAsync(IEnumerable<int> accountIds, CancellationToken cancellationToken);
+
+    Task<TResult> ExecuteInTransactionAsync<TResult>(
+        Func<CancellationToken, Task<TResult>> operation,
+        System.Data.IsolationLevel isolationLevel,
+        CancellationToken cancellationToken);
 }

@@ -68,7 +68,7 @@ public sealed class TransactionsController(IMediator mediator) : ControllerBase
         CancellationToken cancellationToken)
     {
         var dto = await mediator.Send(command, cancellationToken).ConfigureAwait(false);
-        return Ok(dto);
+        return CreatedAtAction(nameof(GetByIdAsync), new { id = dto.Source.Id }, dto);
     }
 
     [HttpPut("{id:long}")]
@@ -79,7 +79,8 @@ public sealed class TransactionsController(IMediator mediator) : ControllerBase
     {
         if (id != command.Id)
         {
-            return BadRequest(new { error = "Id у шляху не співпадає з тілом запиту." });
+            ModelState.AddModelError(nameof(command.Id), "Ідентифікатор у шляху не збігається з ідентифікатором у тілі запиту.");
+            return ValidationProblem(ModelState);
         }
 
         var dto = await mediator.Send(command, cancellationToken).ConfigureAwait(false);

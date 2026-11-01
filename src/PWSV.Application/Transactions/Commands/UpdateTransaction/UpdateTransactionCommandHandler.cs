@@ -22,6 +22,7 @@ public sealed class UpdateTransactionCommandHandler(
 
         var transaction = await db.Transactions
             .Include(t => t.Account)
+                .ThenInclude(a => a.Currency)
             .Include(t => t.Category)
             .SingleOrDefaultAsync(t => t.Id == command.Id, cancellationToken)
             .ConfigureAwait(false)
@@ -38,6 +39,11 @@ public sealed class UpdateTransactionCommandHandler(
                 "Редагування транзакцій-переказів недоступне; видаліть переказ та створіть новий.");
         }
 
+        if (!transaction.Account.IsActive)
+        {
+            throw new AccountIsInactiveException(transaction.AccountId);
+        }
+
         if (command.CategoryId.HasValue && command.CategoryId.Value != transaction.CategoryId)
         {
             var category = await db.Categories
@@ -51,11 +57,19 @@ public sealed class UpdateTransactionCommandHandler(
             }
 
             category.EnsureMatches(transaction.Kind);
+
+            if (!category.IsActive)
+            {
+                throw new ConflictException("Категорію деактивовано. Оберіть активну категорію.");
+            }
+
             transaction.CategoryId = category.Id;
         }
 
         if (command.AccountId.HasValue && command.AccountId.Value != transaction.AccountId)
         {
+            await db.LockAccountsAsync([transaction.AccountId, command.AccountId.Value], cancellationToken).ConfigureAwait(false);
+
             var newAccount = await db.Accounts
                 .SingleOrDefaultAsync(a => a.Id == command.AccountId.Value, cancellationToken)
                 .ConfigureAwait(false)
@@ -80,13 +94,17 @@ public sealed class UpdateTransactionCommandHandler(
             transaction.AccountId = newAccount.Id;
         }
 
+        transaction.Account.Currency.EnsureSupportsAmount(command.Amount);
+
+        var description = string.IsNullOrWhiteSpace(command.Description) ? null : command.Description.Trim();
+
         transaction.Amount = command.Amount;
         transaction.OccurredAt = command.OccurredAt;
-        transaction.Counterparty = command.Counterparty?.Trim();
+        transaction.Counterparty = string.IsNullOrWhiteSpace(command.Counterparty) ? null : command.Counterparty.Trim();
         transaction.UpdatedAt = clock.UtcNow;
         transaction.EnsurePositiveAmount();
 
-        if (string.IsNullOrWhiteSpace(command.Description))
+        if (description is null)
         {
             transaction.DescriptionCipher = null;
             transaction.DescriptionNonce = null;
@@ -94,7 +112,7 @@ public sealed class UpdateTransactionCommandHandler(
         }
         else
         {
-            var encrypted = crypto.Encrypt(command.Description.Trim());
+            var encrypted = crypto.Encrypt(description);
             transaction.DescriptionCipher = encrypted.Cipher;
             transaction.DescriptionNonce = encrypted.Nonce;
             transaction.DescriptionTag = encrypted.Tag;
@@ -102,7 +120,6 @@ public sealed class UpdateTransactionCommandHandler(
 
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        var dto = transaction.Adapt<TransactionDto>();
-        return dto with { Description = command.Description };
+        return transaction.Adapt<TransactionDto>() with { Description = description };
     }
 }

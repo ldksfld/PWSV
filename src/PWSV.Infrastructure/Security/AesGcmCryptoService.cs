@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using PWSV.Application.Common.Exceptions;
 using PWSV.Application.Common.Interfaces;
 using PWSV.Domain.ValueObjects;
 
@@ -12,27 +13,45 @@ public sealed class AesGcmCryptoService : ICryptoService
 
     private byte[]? _key;
 
-    public bool IsReady => _key is { Length: > 0 };
-
     public void InitializeKey(string masterPassword, byte[] salt, int iterations, int keyLength)
+    {
+        TryInitializeKey(masterPassword, salt, iterations, keyLength, []);
+    }
+
+    public bool TryInitializeKey(
+        string masterPassword,
+        byte[] salt,
+        int iterations,
+        int keyLength,
+        IReadOnlyCollection<EncryptedString> verificationSamples)
     {
         ArgumentException.ThrowIfNullOrEmpty(masterPassword);
         ArgumentNullException.ThrowIfNull(salt);
+        ArgumentNullException.ThrowIfNull(verificationSamples);
 
         if (salt.Length == 0)
         {
             throw new ArgumentException("Salt must not be empty.", nameof(salt));
         }
 
-        _key = Rfc2898DeriveBytes.Pbkdf2(masterPassword, salt, iterations, HashAlgorithmName.SHA256, keyLength);
+        var candidate = Rfc2898DeriveBytes.Pbkdf2(masterPassword, salt, iterations, HashAlgorithmName.SHA256, keyLength);
+
+        if (verificationSamples.Count > 0 && !verificationSamples.Any(sample => CanDecrypt(candidate, sample)))
+        {
+            CryptographicOperations.ZeroMemory(candidate);
+            return false;
+        }
+
+        Interlocked.Exchange(ref _key, candidate);
+        return true;
     }
 
     public void Reset()
     {
-        if (_key is not null)
+        var key = Interlocked.Exchange(ref _key, null);
+        if (key is not null)
         {
-            CryptographicOperations.ZeroMemory(_key);
-            _key = null;
+            CryptographicOperations.ZeroMemory(key);
         }
     }
 
@@ -57,6 +76,11 @@ public sealed class AesGcmCryptoService : ICryptoService
         var key = RequireKey();
         ArgumentNullException.ThrowIfNull(payload);
 
+        if (payload.Nonce.Length != NonceSize || payload.Tag.Length != TagSize)
+        {
+            throw new CryptographicException("Encrypted payload has an invalid nonce or tag length.");
+        }
+
         var plaintext = new byte[payload.Cipher.Length];
 
         using var aes = new AesGcm(key, TagSize);
@@ -65,14 +89,29 @@ public sealed class AesGcmCryptoService : ICryptoService
         return Encoding.UTF8.GetString(plaintext);
     }
 
-    private byte[] RequireKey()
+    private static bool CanDecrypt(byte[] key, EncryptedString sample)
     {
-        if (_key is null || _key.Length == 0)
+        if (sample.Nonce.Length != NonceSize || sample.Tag.Length != TagSize)
         {
-            throw new InvalidOperationException(
-                "Сервіс шифрування не ініціалізовано. Спочатку виконайте вхід з мастер-паролем.");
+            return false;
         }
 
-        return _key;
+        try
+        {
+            using var aes = new AesGcm(key, TagSize);
+            aes.Decrypt(sample.Nonce, sample.Cipher, sample.Tag, new byte[sample.Cipher.Length]);
+            return true;
+        }
+        catch (CryptographicException)
+        {
+            return false;
+        }
+    }
+
+    private byte[] RequireKey()
+    {
+        return Volatile.Read(ref _key)
+            ?? throw new UnauthorizedException(
+                "Сеанс шифрування завершено. Увійдіть повторно з майстер-паролем.");
     }
 }

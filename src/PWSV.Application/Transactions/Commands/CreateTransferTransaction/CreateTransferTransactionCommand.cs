@@ -13,7 +13,7 @@ public sealed record CreateTransferTransactionCommand(
     DateTime OccurredAt,
     string? Description) : IRequest<TransferResult>, ITransactionalRequest
 {
-    public IsolationLevel IsolationLevel => IsolationLevel.RepeatableRead;
+    public IsolationLevel IsolationLevel => IsolationLevel.ReadCommitted;
 }
 
 public sealed record TransferResult(TransactionDto Source, TransactionDto Destination);

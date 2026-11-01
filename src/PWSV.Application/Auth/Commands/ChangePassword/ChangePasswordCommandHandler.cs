@@ -1,3 +1,4 @@
+using FluentValidation.Results;
 using MediatR;
 using PWSV.Application.Common.Exceptions;
 using PWSV.Application.Common.Interfaces;
@@ -20,7 +21,10 @@ public sealed class ChangePasswordCommandHandler(
 
         if (!passwordHasher.Verify(command.OldPassword, user.PasswordHash))
         {
-            throw new UnauthorizedException("Старий пароль невірний.");
+            throw new ValidationException(
+            [
+                new ValidationFailure(nameof(ChangePasswordCommand.OldPassword), "Старий пароль невірний.")
+            ]);
         }
 
         user.PasswordHash = passwordHasher.Hash(command.NewPassword);

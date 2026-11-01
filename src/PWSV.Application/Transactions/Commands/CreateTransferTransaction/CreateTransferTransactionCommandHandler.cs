@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using PWSV.Application.Common.Exceptions;
 using PWSV.Application.Common.Interfaces;
+using PWSV.Application.Common.Validation;
 using PWSV.Application.Transactions.Dto;
 using PWSV.Domain.Entities;
 using PWSV.Domain.Enums;
@@ -21,12 +22,16 @@ public sealed class CreateTransferTransactionCommandHandler(
         var userId = currentUser.UserId
             ?? throw new ForbiddenException("Необхідна авторизація.");
 
+        await db.LockAccountsAsync([command.SourceAccountId, command.DestinationAccountId], cancellationToken).ConfigureAwait(false);
+
         var source = await db.Accounts
+            .Include(a => a.Currency)
             .SingleOrDefaultAsync(a => a.Id == command.SourceAccountId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new NotFoundException("Account", command.SourceAccountId);
 
         var destination = await db.Accounts
+            .Include(a => a.Currency)
             .SingleOrDefaultAsync(a => a.Id == command.DestinationAccountId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new NotFoundException("Account", command.DestinationAccountId);
@@ -46,73 +51,72 @@ public sealed class CreateTransferTransactionCommandHandler(
             throw new AccountIsInactiveException(destination.Id);
         }
 
-        if (source.CurrencyId != destination.CurrencyId && !command.ExchangeRate.HasValue)
+        var sameCurrency = source.CurrencyId == destination.CurrencyId;
+        if (!sameCurrency && !command.ExchangeRate.HasValue)
         {
             throw new ConflictException(
                 "Для переказу між рахунками у різних валютах необхідно вказати курс конверсії.");
         }
 
-        var convertedAmount = source.CurrencyId == destination.CurrencyId
-            ? command.Amount
-            : decimal.Round(
-                command.Amount * command.ExchangeRate.GetValueOrDefault(),
-                2,
-                MidpointRounding.AwayFromZero);
+        source.Currency.EnsureSupportsAmount(command.Amount);
 
-        var sourceDescription = EncryptDescription(command.Description);
-        var destinationDescription = EncryptDescription(command.Description);
+        var convertedAmount = sameCurrency
+            ? command.Amount
+            : destination.Currency.RoundAmount(command.Amount * command.ExchangeRate.GetValueOrDefault());
+
+        if (convertedAmount <= 0m)
+        {
+            throw new ConflictException(
+                "Сума зарахування після конвертації менша за мінімальну одиницю валюти отримувача.");
+        }
+
+        if (convertedAmount > ValidationRules.MaxAmount)
+        {
+            throw new ConflictException(
+                "Сума зарахування після конвертації перевищує допустиму межу 999 999 999 999,99.");
+        }
+
+        var description = string.IsNullOrWhiteSpace(command.Description) ? null : command.Description.Trim();
         var now = clock.UtcNow;
 
-        var sourceTx = new Transaction
-        {
-            AccountId = source.Id,
-            Kind = TransactionKind.Transfer,
-            Amount = command.Amount,
-            OccurredAt = command.OccurredAt,
-            DescriptionCipher = sourceDescription?.Cipher,
-            DescriptionNonce = sourceDescription?.Nonce,
-            DescriptionTag = sourceDescription?.Tag,
-            CreatedAt = now
-        };
-        sourceTx.EnsurePositiveAmount();
-
+        var sourceTx = CreateTransfer(source.Id, command.Amount, command.OccurredAt, description, now);
         db.Transactions.Add(sourceTx);
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        var destinationTx = new Transaction
-        {
-            AccountId = destination.Id,
-            Kind = TransactionKind.Transfer,
-            Amount = convertedAmount,
-            OccurredAt = command.OccurredAt,
-            DescriptionCipher = destinationDescription?.Cipher,
-            DescriptionNonce = destinationDescription?.Nonce,
-            DescriptionTag = destinationDescription?.Tag,
-            CreatedAt = now,
-            LinkedTransactionId = sourceTx.Id
-        };
-        destinationTx.EnsurePositiveAmount();
-
+        var destinationTx = CreateTransfer(destination.Id, convertedAmount, command.OccurredAt, description, now);
+        destinationTx.LinkedTransactionId = sourceTx.Id;
         db.Transactions.Add(destinationTx);
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         sourceTx.LinkedTransactionId = destinationTx.Id;
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        var sourceDto = MapToDto(sourceTx, source, command.Description);
-        var destinationDto = MapToDto(destinationTx, destination, command.Description);
+        var sourceDto = MapToDto(sourceTx, source, description);
+        var destinationDto = MapToDto(destinationTx, destination, description);
         return new TransferResult(sourceDto, destinationDto);
     }
 
-    private (byte[] Cipher, byte[] Nonce, byte[] Tag)? EncryptDescription(string? description)
+    private Transaction CreateTransfer(int accountId, decimal amount, DateTime occurredAt, string? description, DateTime now)
     {
-        if (string.IsNullOrWhiteSpace(description))
+        var transaction = new Transaction
         {
-            return null;
+            AccountId = accountId,
+            Kind = TransactionKind.Transfer,
+            Amount = amount,
+            OccurredAt = occurredAt,
+            CreatedAt = now
+        };
+        transaction.EnsurePositiveAmount();
+
+        if (description is not null)
+        {
+            var encrypted = crypto.Encrypt(description);
+            transaction.DescriptionCipher = encrypted.Cipher;
+            transaction.DescriptionNonce = encrypted.Nonce;
+            transaction.DescriptionTag = encrypted.Tag;
         }
 
-        var encrypted = crypto.Encrypt(description.Trim());
-        return (encrypted.Cipher, encrypted.Nonce, encrypted.Tag);
+        return transaction;
     }
 
     private static TransactionDto MapToDto(Transaction transaction, Account account, string? description)

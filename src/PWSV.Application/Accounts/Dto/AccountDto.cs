@@ -10,6 +10,7 @@ public sealed record AccountDto
     public int CurrencyId { get; init; }
     public string CurrencyCode { get; init; } = string.Empty;
     public string CurrencySymbol { get; init; } = string.Empty;
+    public byte CurrencyDecimalPlaces { get; init; }
     public decimal Balance { get; init; }
     public bool IsActive { get; init; }
     public string? AccountNumber { get; init; }

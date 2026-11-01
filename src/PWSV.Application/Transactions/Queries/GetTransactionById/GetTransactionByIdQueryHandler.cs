@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using PWSV.Application.Common.Exceptions;
 using PWSV.Application.Common.Interfaces;
 using PWSV.Application.Transactions.Dto;
-using PWSV.Domain.ValueObjects;
 
 namespace PWSV.Application.Transactions.Queries.GetTransactionById;
 
@@ -31,21 +30,12 @@ public sealed class GetTransactionByIdQueryHandler(
             throw new ForbiddenException("Транзакція належить іншому користувачеві.");
         }
 
-        var dto = transaction.Adapt<TransactionDto>();
-        var description = TryDecrypt(
-            transaction.DescriptionCipher,
-            transaction.DescriptionNonce,
-            transaction.DescriptionTag);
-        return dto with { Description = description };
-    }
-
-    private string? TryDecrypt(byte[]? cipher, byte[]? nonce, byte[]? tag)
-    {
-        if (cipher is null || nonce is null || tag is null || cipher.Length == 0 || !crypto.IsReady)
+        return transaction.Adapt<TransactionDto>() with
         {
-            return null;
-        }
-
-        return crypto.Decrypt(new EncryptedString(cipher, nonce, tag));
+            Description = crypto.DecryptOrNull(
+                transaction.DescriptionCipher,
+                transaction.DescriptionNonce,
+                transaction.DescriptionTag)
+        };
     }
 }

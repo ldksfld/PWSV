@@ -2,7 +2,6 @@ using System.Data;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Storage;
 using PWSV.Application.Common.Interfaces;
 using PWSV.Domain.Entities;
 using PWSV.Infrastructure.Persistence.Interceptors;
@@ -23,9 +22,31 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<KeyDerivationConfig> KeyDerivationConfigs => Set<KeyDerivationConfig>();
 
-    public async Task<IDbContextTransaction> BeginTransactionAsync(IsolationLevel isolationLevel, CancellationToken cancellationToken)
+    public async Task LockAccountsAsync(IEnumerable<int> accountIds, CancellationToken cancellationToken)
     {
-        return await Database.BeginTransactionAsync(isolationLevel, cancellationToken).ConfigureAwait(false);
+        foreach (var accountId in accountIds.Distinct().Order())
+        {
+            await Database
+                .ExecuteSqlAsync($"SELECT Id FROM dbo.Accounts WITH (UPDLOCK, ROWLOCK) WHERE Id = {accountId}", cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    public Task<TResult> ExecuteInTransactionAsync<TResult>(
+        Func<CancellationToken, Task<TResult>> operation,
+        IsolationLevel isolationLevel,
+        CancellationToken cancellationToken)
+    {
+        return Database.CreateExecutionStrategy().ExecuteAsync(
+            async ct =>
+            {
+                ChangeTracker.Clear();
+                await using var transaction = await Database.BeginTransactionAsync(isolationLevel, ct).ConfigureAwait(false);
+                var result = await operation(ct).ConfigureAwait(false);
+                await transaction.CommitAsync(ct).ConfigureAwait(false);
+                return result;
+            },
+            cancellationToken);
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

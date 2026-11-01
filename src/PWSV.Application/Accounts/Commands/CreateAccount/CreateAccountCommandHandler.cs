@@ -28,11 +28,15 @@ public sealed class CreateAccountCommandHandler(
             throw new NotFoundException("AccountType", command.AccountTypeId);
         }
 
-        var currencyExists = await db.Currencies.AnyAsync(c => c.Id == command.CurrencyId, cancellationToken).ConfigureAwait(false);
-        if (!currencyExists)
-        {
-            throw new NotFoundException("Currency", command.CurrencyId);
-        }
+        var currency = await db.Currencies
+            .AsNoTracking()
+            .SingleOrDefaultAsync(c => c.Id == command.CurrencyId, cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new NotFoundException("Currency", command.CurrencyId);
+
+        currency.EnsureSupportsAmount(command.InitialBalance);
+
+        var accountNumber = string.IsNullOrWhiteSpace(command.AccountNumber) ? null : command.AccountNumber.Trim();
 
         var account = new Account
         {
@@ -45,9 +49,9 @@ public sealed class CreateAccountCommandHandler(
             CreatedAt = clock.UtcNow
         };
 
-        if (!string.IsNullOrWhiteSpace(command.AccountNumber))
+        if (accountNumber is not null)
         {
-            var encrypted = crypto.Encrypt(command.AccountNumber.Trim());
+            var encrypted = crypto.Encrypt(accountNumber);
             account.AccountNumberCipher = encrypted.Cipher;
             account.AccountNumberNonce = encrypted.Nonce;
             account.AccountNumberTag = encrypted.Tag;
@@ -79,18 +83,18 @@ public sealed class CreateAccountCommandHandler(
             .SingleAsync(a => a.Id == account.Id, cancellationToken)
             .ConfigureAwait(false);
 
-        var dto = saved.Adapt<AccountDto>();
-        return command.AccountNumber is null ? dto : dto with { AccountNumber = command.AccountNumber };
+        return saved.Adapt<AccountDto>() with { AccountNumber = accountNumber };
     }
 
     private async Task<Category> EnsureOpeningBalanceCategoryAsync(int userId, CancellationToken cancellationToken)
     {
         var existing = await db.Categories
-            .SingleOrDefaultAsync(
-                c => c.UserId == userId
-                    && c.ParentCategoryId == null
-                    && c.Name == OpeningBalanceCategoryName,
-                cancellationToken)
+            .Where(c => c.UserId == userId
+                && c.ParentCategoryId == null
+                && c.Kind == CategoryKind.Income
+                && c.Name == OpeningBalanceCategoryName)
+            .OrderBy(c => c.Id)
+            .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
 
         if (existing is not null)

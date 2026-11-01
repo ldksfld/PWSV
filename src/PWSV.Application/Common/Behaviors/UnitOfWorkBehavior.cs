@@ -20,12 +20,8 @@ public sealed class UnitOfWorkBehavior<TRequest, TResponse>(IApplicationDbContex
             return await next().ConfigureAwait(false);
         }
 
-        await using var dbTransaction = await db
-            .BeginTransactionAsync(transactional.IsolationLevel, cancellationToken)
+        return await db
+            .ExecuteInTransactionAsync(_ => next(), transactional.IsolationLevel, cancellationToken)
             .ConfigureAwait(false);
-
-        var response = await next().ConfigureAwait(false);
-        await dbTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-        return response;
     }
 }

@@ -5,7 +5,6 @@ using PWSV.Application.Accounts.Dto;
 using PWSV.Application.Common.Exceptions;
 using PWSV.Application.Common.Interfaces;
 using PWSV.Application.Transactions.Dto;
-using PWSV.Domain.ValueObjects;
 
 namespace PWSV.Application.Accounts.Queries.GetAccountById;
 
@@ -34,12 +33,13 @@ public sealed class GetAccountByIdQueryHandler(
             throw new ForbiddenException("Рахунок належить іншому користувачеві.");
         }
 
-        var accountDto = account.Adapt<AccountDto>();
-        var decryptedNumber = DecryptAccountNumber(
-            account.AccountNumberCipher,
-            account.AccountNumberNonce,
-            account.AccountNumberTag);
-        accountDto = accountDto with { AccountNumber = decryptedNumber };
+        var accountDto = account.Adapt<AccountDto>() with
+        {
+            AccountNumber = crypto.DecryptOrNull(
+                account.AccountNumberCipher,
+                account.AccountNumberNonce,
+                account.AccountNumberTag)
+        };
 
         var transactions = await db.Transactions
             .AsNoTracking()
@@ -47,19 +47,15 @@ public sealed class GetAccountByIdQueryHandler(
             .Include(t => t.Account)
             .Where(t => t.AccountId == query.Id)
             .OrderByDescending(t => t.OccurredAt)
+            .ThenByDescending(t => t.Id)
             .Take(RecentTransactionsLimit)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
         var transactionDtos = transactions
-            .Select(t =>
+            .Select(t => t.Adapt<TransactionDto>() with
             {
-                var dto = t.Adapt<TransactionDto>();
-                var description = DecryptDescription(
-                    t.DescriptionCipher,
-                    t.DescriptionNonce,
-                    t.DescriptionTag);
-                return dto with { Description = description };
+                Description = crypto.DecryptOrNull(t.DescriptionCipher, t.DescriptionNonce, t.DescriptionTag)
             })
             .ToList();
 
@@ -68,25 +64,5 @@ public sealed class GetAccountByIdQueryHandler(
             Account = accountDto,
             RecentTransactions = transactionDtos
         };
-    }
-
-    private string? DecryptAccountNumber(byte[]? cipher, byte[]? nonce, byte[]? tag)
-    {
-        if (cipher is null || nonce is null || tag is null || cipher.Length == 0 || !crypto.IsReady)
-        {
-            return null;
-        }
-
-        return crypto.Decrypt(new EncryptedString(cipher, nonce, tag));
-    }
-
-    private string? DecryptDescription(byte[]? cipher, byte[]? nonce, byte[]? tag)
-    {
-        if (cipher is null || nonce is null || tag is null || cipher.Length == 0 || !crypto.IsReady)
-        {
-            return null;
-        }
-
-        return crypto.Decrypt(new EncryptedString(cipher, nonce, tag));
     }
 }

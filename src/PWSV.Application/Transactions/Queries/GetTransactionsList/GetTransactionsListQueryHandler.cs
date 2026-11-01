@@ -1,11 +1,11 @@
 using Mapster;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using PWSV.Application.Categories;
 using PWSV.Application.Common.Exceptions;
 using PWSV.Application.Common.Interfaces;
 using PWSV.Application.Common.Models;
 using PWSV.Application.Transactions.Dto;
-using PWSV.Domain.ValueObjects;
 
 namespace PWSV.Application.Transactions.Queries.GetTransactionsList;
 
@@ -43,7 +43,8 @@ public sealed class GetTransactionsListQueryHandler(
 
         if (query.CategoryId.HasValue)
         {
-            queryable = queryable.Where(t => t.CategoryId == query.CategoryId.Value);
+            var categoryIds = await GetCategoryWithDescendantsAsync(userId, query.CategoryId.Value, cancellationToken).ConfigureAwait(false);
+            queryable = queryable.Where(t => t.CategoryId.HasValue && categoryIds.Contains(t.CategoryId.Value));
         }
 
         if (query.Kind.HasValue)
@@ -78,23 +79,25 @@ public sealed class GetTransactionsListQueryHandler(
             .ConfigureAwait(false);
 
         var items = transactions
-            .Select(t =>
+            .Select(t => t.Adapt<TransactionDto>() with
             {
-                var dto = t.Adapt<TransactionDto>();
-                return dto with { Description = TryDecrypt(t.DescriptionCipher, t.DescriptionNonce, t.DescriptionTag) };
+                Description = crypto.DecryptOrNull(t.DescriptionCipher, t.DescriptionNonce, t.DescriptionTag)
             })
             .ToList();
 
         return new PagedResult<TransactionDto>(items, page, pageSize, totalCount);
     }
 
-    private string? TryDecrypt(byte[]? cipher, byte[]? nonce, byte[]? tag)
+    private async Task<List<int>> GetCategoryWithDescendantsAsync(int userId, int categoryId, CancellationToken cancellationToken)
     {
-        if (cipher is null || nonce is null || tag is null || cipher.Length == 0 || !crypto.IsReady)
-        {
-            return null;
-        }
+        var categories = await db.Categories
+            .AsNoTracking()
+            .Where(c => c.UserId == userId)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
 
-        return crypto.Decrypt(new EncryptedString(cipher, nonce, tag));
+        var ids = CategoryHierarchy.GetDescendantIds(categories, categoryId);
+        ids.Add(categoryId);
+        return [.. ids];
     }
 }

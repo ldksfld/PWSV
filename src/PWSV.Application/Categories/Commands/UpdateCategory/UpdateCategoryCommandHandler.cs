@@ -26,63 +26,79 @@ public sealed class UpdateCategoryCommandHandler(
             throw new ForbiddenException("Категорія належить іншому користувачеві.");
         }
 
-        if (command.ParentCategoryId is { } parentId && parentId != category.ParentCategoryId)
+        var categories = await db.Categories
+            .Where(c => c.UserId == userId)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var descendantIds = CategoryHierarchy.GetDescendantIds(categories, category.Id);
+
+        if (command.ParentCategoryId is { } parentId)
         {
             if (parentId == category.Id)
             {
                 throw new ConflictException("Категорія не може бути власним батьком.");
             }
 
-            var parent = await db.Categories
-                .SingleOrDefaultAsync(c => c.Id == parentId, cancellationToken)
-                .ConfigureAwait(false)
-                ?? throw new NotFoundException("Category", parentId);
-
-            if (parent.UserId != userId)
+            var parent = categories.SingleOrDefault(c => c.Id == parentId);
+            if (parent is null)
             {
-                throw new ForbiddenException(
-                    "Батьківська категорія належить іншому користувачеві.");
+                var existsForOtherUser = await db.Categories
+                    .AnyAsync(c => c.Id == parentId, cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (existsForOtherUser)
+                {
+                    throw new ForbiddenException("Батьківська категорія належить іншому користувачеві.");
+                }
+
+                throw new NotFoundException("Category", parentId);
             }
 
             if (parent.Kind != category.Kind)
             {
                 throw new ConflictException(
-                    "Тип батьківської категорії повинен співпадати з типом категорії.");
+                    "Тип батьківської категорії повинен збігатися з типом категорії.");
             }
 
-            var isDescendant = await IsDescendantAsync(parentId, category.Id, cancellationToken)
-                .ConfigureAwait(false);
-            if (isDescendant)
+            if (descendantIds.Contains(parentId))
             {
                 throw new ConflictException(
                     "Не можна зробити батьком категорію, яка є власним нащадком.");
             }
+
+            if (command.IsActive && !parent.IsActive)
+            {
+                throw new ConflictException(
+                    "Батьківську категорію деактивовано. Спочатку активуйте її.");
+            }
         }
 
-        category.Name = command.Name.Trim();
+        var name = command.Name.Trim();
+        var duplicateExists = categories.Any(c =>
+            c.Id != category.Id
+            && c.ParentCategoryId == command.ParentCategoryId
+            && string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        if (duplicateExists)
+        {
+            throw new ConflictException(
+                "Категорія з такою назвою у даного батька вже існує.");
+        }
+
+        if (category.IsActive && !command.IsActive)
+        {
+            foreach (var descendant in categories.Where(c => descendantIds.Contains(c.Id)))
+            {
+                descendant.IsActive = false;
+            }
+        }
+
+        category.Name = name;
         category.ParentCategoryId = command.ParentCategoryId;
+        category.IsActive = command.IsActive;
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return category.Adapt<CategoryDto>();
-    }
-
-    private async Task<bool> IsDescendantAsync(int candidateParentId, int rootCategoryId, CancellationToken cancellationToken)
-    {
-        var currentId = (int?)candidateParentId;
-        var safety = 0;
-        while (currentId is not null && safety++ < 64)
-        {
-            if (currentId.Value == rootCategoryId)
-            {
-                return true;
-            }
-
-            currentId = await db.Categories
-                .Where(c => c.Id == currentId.Value)
-                .Select(c => c.ParentCategoryId)
-                .SingleOrDefaultAsync(cancellationToken)
-                .ConfigureAwait(false);
-        }
-        return false;
     }
 }

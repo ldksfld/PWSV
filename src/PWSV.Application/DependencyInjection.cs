@@ -3,6 +3,7 @@ using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using PWSV.Application.Common.Behaviors;
 using PWSV.Application.Common.Mappings;
+using PWSV.Application.Common.Validation;
 
 namespace PWSV.Application;
 
@@ -23,6 +24,7 @@ public static class DependencyInjection
         services.AddValidatorsFromAssembly(assembly);
 
         MapsterConfig.Register();
+        ValidationConfig.Register();
 
         return services;
     }

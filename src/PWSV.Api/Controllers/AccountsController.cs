@@ -50,7 +50,8 @@ public sealed class AccountsController(IMediator mediator) : ControllerBase
     {
         if (id != command.Id)
         {
-            return BadRequest(new { error = "Id у шляху не співпадає з тілом запиту." });
+            ModelState.AddModelError(nameof(command.Id), "Ідентифікатор у шляху не збігається з ідентифікатором у тілі запиту.");
+            return ValidationProblem(ModelState);
         }
 
         var account = await mediator.Send(command, cancellationToken).ConfigureAwait(false);

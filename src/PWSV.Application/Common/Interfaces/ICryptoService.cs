@@ -4,8 +4,8 @@ namespace PWSV.Application.Common.Interfaces;
 
 public interface ICryptoService
 {
-    bool IsReady { get; }
     void InitializeKey(string masterPassword, byte[] salt, int iterations, int keyLength);
+    bool TryInitializeKey(string masterPassword, byte[] salt, int iterations, int keyLength, IReadOnlyCollection<EncryptedString> verificationSamples);
     void Reset();
     EncryptedString Encrypt(string plaintext);
     string Decrypt(EncryptedString payload);

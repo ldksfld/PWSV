@@ -17,6 +17,7 @@ public static class MapsterConfig
             .Map(dest => dest.AccountTypeName, src => src.AccountType != null ? src.AccountType.DisplayName : string.Empty)
             .Map(dest => dest.CurrencyCode, src => src.Currency != null ? src.Currency.Code : string.Empty)
             .Map(dest => dest.CurrencySymbol, src => src.Currency != null ? src.Currency.Symbol : string.Empty)
+            .Map(dest => dest.CurrencyDecimalPlaces, src => src.Currency != null ? src.Currency.DecimalPlaces : Currency.MaxAmountDecimalPlaces)
             .Ignore(dest => dest.AccountNumber!);
 
         TypeAdapterConfig<Category, CategoryDto>.NewConfig();
@@ -30,6 +31,7 @@ public static class MapsterConfig
         TypeAdapterConfig<Transaction, TransactionDto>.NewConfig()
             .Map(dest => dest.AccountName, src => src.Account != null ? src.Account.Name : string.Empty)
             .Map(dest => dest.CategoryName, src => src.Category != null ? src.Category.Name : null)
+            .Map(dest => dest.Direction, src => src.IsOutgoing ? TransactionDirection.Outgoing : TransactionDirection.Incoming)
             .Ignore(dest => dest.Description!);
     }
 }

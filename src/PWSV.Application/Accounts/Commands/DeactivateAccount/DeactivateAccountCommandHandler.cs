@@ -25,14 +25,14 @@ public sealed class DeactivateAccountCommandHandler(
             throw new ForbiddenException("Рахунок належить іншому користувачеві.");
         }
 
-        if (account.Balance != 0m)
-        {
-            throw new ConflictException("Деактивація можлива лише за нульового балансу.");
-        }
-
         if (!account.IsActive)
         {
             return Unit.Value;
+        }
+
+        if (account.Balance != 0m)
+        {
+            throw new ConflictException("Деактивація можлива лише за нульового балансу.");
         }
 
         account.IsActive = false;

@@ -17,15 +17,75 @@ public sealed class AuditInterceptor(ICurrentUserService currentUser, IDateTimeP
         nameof(Currency)
     };
 
+    private readonly List<(AuditEntry Audit, EntityEntry Entry)> _pendingKeys = [];
+
+    public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
+    {
+        AddAuditEntries(eventData.Context);
+        return base.SavingChanges(eventData, result);
+    }
+
     public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
         DbContextEventData eventData,
         InterceptionResult<int> result,
         CancellationToken cancellationToken = default)
     {
-        var context = eventData.Context;
+        AddAuditEntries(eventData.Context);
+        return base.SavingChangesAsync(eventData, result, cancellationToken);
+    }
+
+    public override int SavedChanges(SaveChangesCompletedEventData eventData, int result)
+    {
+        if (eventData.Context is not null && ResolvePendingKeys())
+        {
+            eventData.Context.SaveChanges();
+        }
+
+        return base.SavedChanges(eventData, result);
+    }
+
+    public override async ValueTask<int> SavedChangesAsync(
+        SaveChangesCompletedEventData eventData,
+        int result,
+        CancellationToken cancellationToken = default)
+    {
+        if (eventData.Context is not null && ResolvePendingKeys())
+        {
+            await eventData.Context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return await base.SavedChangesAsync(eventData, result, cancellationToken).ConfigureAwait(false);
+    }
+
+    public override void SaveChangesFailed(DbContextErrorEventData eventData)
+    {
+        _pendingKeys.Clear();
+        base.SaveChangesFailed(eventData);
+    }
+
+    public override Task SaveChangesFailedAsync(DbContextErrorEventData eventData, CancellationToken cancellationToken = default)
+    {
+        _pendingKeys.Clear();
+        return base.SaveChangesFailedAsync(eventData, cancellationToken);
+    }
+
+    public override void SaveChangesCanceled(DbContextEventData eventData)
+    {
+        _pendingKeys.Clear();
+        base.SaveChangesCanceled(eventData);
+    }
+
+    public override Task SaveChangesCanceledAsync(DbContextEventData eventData, CancellationToken cancellationToken = default)
+    {
+        _pendingKeys.Clear();
+        return base.SaveChangesCanceledAsync(eventData, cancellationToken);
+    }
+
+    private void AddAuditEntries(DbContext? context)
+    {
         if (context is null)
         {
-            return base.SavingChangesAsync(eventData, result, cancellationToken);
+            return;
         }
 
         var entries = context.ChangeTracker.Entries()
@@ -33,17 +93,32 @@ public sealed class AuditInterceptor(ICurrentUserService currentUser, IDateTimeP
                         && e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             .ToList();
 
-        if (entries.Count == 0)
-        {
-            return base.SavingChangesAsync(eventData, result, cancellationToken);
-        }
-
         foreach (var entry in entries)
         {
-            context.Set<AuditEntry>().Add(BuildAuditEntry(entry));
+            var audit = BuildAuditEntry(entry);
+            context.Set<AuditEntry>().Add(audit);
+
+            if (entry.State == EntityState.Added && HasTemporaryKey(entry))
+            {
+                _pendingKeys.Add((audit, entry));
+            }
+        }
+    }
+
+    private bool ResolvePendingKeys()
+    {
+        if (_pendingKeys.Count == 0)
+        {
+            return false;
         }
 
-        return base.SavingChangesAsync(eventData, result, cancellationToken);
+        foreach (var (audit, entry) in _pendingKeys)
+        {
+            audit.EntityKey = ReadKey(entry);
+        }
+
+        _pendingKeys.Clear();
+        return true;
     }
 
     private AuditEntry BuildAuditEntry(EntityEntry entry)
@@ -56,17 +131,20 @@ public sealed class AuditInterceptor(ICurrentUserService currentUser, IDateTimeP
             _ => "UNKNOWN"
         };
 
-        var key = entry.Metadata.FindPrimaryKey()?.Properties
-            .Select(p => entry.Property(p.Name).CurrentValue?.ToString() ?? string.Empty)
-            .FirstOrDefault() ?? string.Empty;
-
         return new AuditEntry
         {
             EntityName = entry.Entity.GetType().Name,
-            EntityKey = key,
+            EntityKey = HasTemporaryKey(entry) ? string.Empty : ReadKey(entry),
             Action = action,
             OccurredAt = clock.UtcNow,
             UserId = currentUser.UserId
         };
     }
+
+    private static bool HasTemporaryKey(EntityEntry entry) =>
+        entry.Metadata.FindPrimaryKey()?.Properties.Any(p => entry.Property(p.Name).IsTemporary) == true;
+
+    private static string ReadKey(EntityEntry entry) =>
+        string.Join("|", entry.Metadata.FindPrimaryKey()?.Properties
+            .Select(p => entry.Property(p.Name).CurrentValue?.ToString() ?? string.Empty) ?? []);
 }

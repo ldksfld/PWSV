@@ -24,7 +24,17 @@ public sealed class DeactivateCategoryCommandHandler(
             throw new ForbiddenException("Категорія належить іншому користувачеві.");
         }
 
-        category.IsActive = false;
+        var categories = await db.Categories
+            .Where(c => c.UserId == userId)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var descendantIds = CategoryHierarchy.GetDescendantIds(categories, category.Id);
+        foreach (var item in categories.Where(c => c.Id == category.Id || descendantIds.Contains(c.Id)))
+        {
+            item.IsActive = false;
+        }
+
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return Unit.Value;
     }

@@ -6,5 +6,5 @@ namespace PWSV.Application.Transactions.Commands.DeleteTransaction;
 
 public sealed record DeleteTransactionCommand(long Id) : IRequest<Unit>, ITransactionalRequest
 {
-    public IsolationLevel IsolationLevel => IsolationLevel.RepeatableRead;
+    public IsolationLevel IsolationLevel => IsolationLevel.ReadCommitted;
 }

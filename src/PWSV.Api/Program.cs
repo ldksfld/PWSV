@@ -1,9 +1,10 @@
+using System.Globalization;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using PWSV.Api.Extensions;
 using PWSV.Api.Json;
@@ -13,7 +14,6 @@ using PWSV.Api.Services;
 using PWSV.Application;
 using PWSV.Application.Common.Interfaces;
 using PWSV.Infrastructure;
-using PWSV.Infrastructure.Persistence;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,9 +36,31 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.ConfigureJwtAuthentication();
 
+builder.Services.AddLocalizedProblemDetails();
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter =
+                ((long)Math.Ceiling(retryAfter.TotalSeconds)).ToString(NumberFormatInfo.InvariantInfo);
+        }
+
+        var problemDetailsService = context.HttpContext.RequestServices.GetRequiredService<IProblemDetailsService>();
+        await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+        {
+            HttpContext = context.HttpContext,
+            ProblemDetails = new ProblemDetails
+            {
+                Status = StatusCodes.Status429TooManyRequests,
+                Title = "Забагато спроб входу.",
+                Detail = "Перевищено ліміт спроб входу. Спробуйте через хвилину."
+            }
+        }).ConfigureAwait(false);
+    };
     options.AddPolicy("auth-login", httpContext =>
     {
         var key = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -69,12 +91,16 @@ builder.Services
     {
         options.SuppressAsyncSuffixInActionNames = false;
     })
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = ProblemDetailsExtensions.CreateInvalidModelStateResponse;
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
         options.JsonSerializerOptions.Converters.Add(new MoneyJsonConverter());
-        options.JsonSerializerOptions.Converters.Add(new NullableMoneyJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new UtcDateTimeJsonConverter());
     });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -113,13 +139,7 @@ var app = builder.Build();
 
 var databaseDirectory = Environment.ExpandEnvironmentVariables(
     builder.Configuration["Database:DataDirectory"] ?? "%LOCALAPPDATA%\\PWSV");
-await DatabaseInitializer.EnsureDatabaseFilesAsync(databaseDirectory, CancellationToken.None).ConfigureAwait(false);
-
-await using (var scope = app.Services.CreateAsyncScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await db.Database.MigrateAsync().ConfigureAwait(false);
-}
+await DatabaseInitializer.InitializeAsync(app.Services, databaseDirectory, CancellationToken.None).ConfigureAwait(false);
 
 if (app.Environment.IsDevelopment())
 {
@@ -141,6 +161,7 @@ app.UseSerilogRequestLogging(options =>
 });
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseStatusCodePages();
 
 app.UseHttpsRedirection();
 app.UseCors();

@@ -10,6 +10,7 @@ public sealed record TransactionDto
     public int? CategoryId { get; init; }
     public string? CategoryName { get; init; }
     public TransactionKind Kind { get; init; }
+    public TransactionDirection Direction { get; init; }
     public decimal Amount { get; init; }
     public DateTime OccurredAt { get; init; }
     public string? Description { get; init; }

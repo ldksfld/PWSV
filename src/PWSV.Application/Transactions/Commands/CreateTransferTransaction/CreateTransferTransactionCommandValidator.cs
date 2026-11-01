@@ -1,5 +1,6 @@
 using FluentValidation;
 using PWSV.Application.Common.Interfaces;
+using PWSV.Application.Common.Validation;
 
 namespace PWSV.Application.Transactions.Commands.CreateTransferTransaction;
 
@@ -11,12 +12,13 @@ public sealed class CreateTransferTransactionCommandValidator : AbstractValidato
         RuleFor(x => x.DestinationAccountId)
             .GreaterThan(0)
             .NotEqual(x => x.SourceAccountId)
-                .WithMessage("Рахунок-джерело та рахунок-отримувач повинні відрізнятись.");
-        RuleFor(x => x.Amount).GreaterThan(0m);
-        RuleFor(x => x.OccurredAt).LessThanOrEqualTo(clock.UtcNow.AddMinutes(1));
+                .WithMessage("Рахунок-джерело та рахунок-отримувач повинні відрізнятися.");
+        RuleFor(x => x.Amount).PositiveAmount();
+        RuleFor(x => x.OccurredAt).OperationDate(clock);
         RuleFor(x => x.Description).MaximumLength(512);
-        When(
-            x => x.ExchangeRate.HasValue,
-            () => RuleFor(x => x.ExchangeRate.GetValueOrDefault()).GreaterThan(0m));
+        RuleFor(x => x.ExchangeRate.GetValueOrDefault())
+            .ExchangeRateValue()
+            .OverridePropertyName(nameof(CreateTransferTransactionCommand.ExchangeRate))
+            .When(x => x.ExchangeRate.HasValue);
     }
 }

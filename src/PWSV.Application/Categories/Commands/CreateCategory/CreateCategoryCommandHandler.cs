@@ -34,7 +34,13 @@ public sealed class CreateCategoryCommandHandler(
             if (parent.Kind != command.Kind)
             {
                 throw new ConflictException(
-                    "Тип підкатегорії повинен співпадати з типом батьківської категорії.");
+                    "Тип підкатегорії повинен збігатися з типом батьківської категорії.");
+            }
+
+            if (!parent.IsActive)
+            {
+                throw new ConflictException(
+                    "Батьківську категорію деактивовано. Спочатку активуйте її.");
             }
         }
 

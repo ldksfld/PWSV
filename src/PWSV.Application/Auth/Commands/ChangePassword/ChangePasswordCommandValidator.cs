@@ -1,4 +1,5 @@
 using FluentValidation;
+using PWSV.Application.Common.Validation;
 
 namespace PWSV.Application.Auth.Commands.ChangePassword;
 
@@ -6,20 +7,12 @@ public sealed class ChangePasswordCommandValidator : AbstractValidator<ChangePas
 {
     public ChangePasswordCommandValidator()
     {
-        RuleFor(x => x.OldPassword).NotEmpty();
+        RuleFor(x => x.OldPassword).NotEmpty().MaximumLength(128);
 
-        RuleFor(x => x.NewPassword)
-            .NotEmpty()
-            .Length(8, 128)
-            .Matches("[a-z]")
-                .WithMessage("Пароль повинен містити щонайменше одну літеру нижнього регістру.")
-            .Matches("[A-Z]")
-                .WithMessage("Пароль повинен містити щонайменше одну літеру верхнього регістру.")
-            .Matches("[0-9]")
-                .WithMessage("Пароль повинен містити щонайменше одну цифру.");
+        RuleFor(x => x.NewPassword).StrongPassword();
 
         RuleFor(x => x.NewPassword)
             .NotEqual(x => x.OldPassword)
-            .WithMessage("Новий пароль не повинен співпадати зі старим.");
+            .WithMessage("Новий пароль не повинен збігатися зі старим.");
     }
 }
