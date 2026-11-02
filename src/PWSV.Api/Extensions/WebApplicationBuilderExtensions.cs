@@ -1,8 +1,12 @@
+using System.Globalization;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using PWSV.Application.Common.Interfaces;
 using PWSV.Infrastructure.Security;
 
 namespace PWSV.Api.Extensions;
@@ -71,9 +75,32 @@ public static class WebApplicationBuilderExtensions
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
                     ClockSkew = TimeSpan.FromSeconds(30)
                 };
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = EnsureTokenUserExistsAsync
+                };
             });
 
         builder.Services.AddAuthorization();
         return builder;
+    }
+
+    private static async Task EnsureTokenUserExistsAsync(TokenValidatedContext context)
+    {
+        var principal = context.Principal;
+        var userIdValue = principal?.FindFirstValue(ClaimTypes.NameIdentifier) ?? principal?.FindFirstValue("sub");
+        var username = principal?.FindFirstValue(ClaimTypes.Name) ?? principal?.FindFirstValue("unique_name");
+        var db = context.HttpContext.RequestServices.GetRequiredService<IApplicationDbContext>();
+
+        var userExists = int.TryParse(userIdValue, CultureInfo.InvariantCulture, out var userId)
+            && await db.Users
+                .AsNoTracking()
+                .AnyAsync(u => u.Id == userId && u.Username == username, context.HttpContext.RequestAborted)
+                .ConfigureAwait(false);
+
+        if (!userExists)
+        {
+            context.Fail("The user of this token no longer exists.");
+        }
     }
 }
