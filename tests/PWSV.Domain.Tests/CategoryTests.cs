@@ -28,4 +28,17 @@ public sealed class CategoryTests
         var act = () => category.EnsureMatches(transactionKind);
         act.Should().Throw<CategoryTypeMismatchException>();
     }
+
+    [Theory]
+    [InlineData(CategoryKind.Expense, TransactionKind.Income, "Тип категорії «витрата» не відповідає типу транзакції «дохід».")]
+    [InlineData(CategoryKind.Income, TransactionKind.Expense, "Тип категорії «дохід» не відповідає типу транзакції «витрата».")]
+    [InlineData(CategoryKind.Income, TransactionKind.Transfer, "Тип категорії «дохід» не відповідає типу транзакції «переказ».")]
+    public void EnsureMatches_WithMismatchedKinds_ReportsUkrainianKindNames(CategoryKind categoryKind, TransactionKind transactionKind, string expectedMessage)
+    {
+        var category = new Category { Kind = categoryKind };
+
+        var act = () => category.EnsureMatches(transactionKind);
+
+        act.Should().Throw<CategoryTypeMismatchException>().WithMessage(expectedMessage);
+    }
 }

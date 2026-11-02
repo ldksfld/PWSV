@@ -38,4 +38,16 @@ public sealed class CurrencyTests
         var currency = new Currency { Code = "TST", DecimalPlaces = decimalPlaces };
         currency.RoundAmount(amount).Should().Be(expected);
     }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(2, 2)]
+    [InlineData(6, 2)]
+    [InlineData(8, 2)]
+    public void AmountDecimalPlaces_IsCappedByStoragePrecision(byte decimalPlaces, int expected)
+    {
+        var currency = new Currency { Code = "XXX", DecimalPlaces = decimalPlaces };
+
+        currency.AmountDecimalPlaces.Should().Be(expected);
+    }
 }

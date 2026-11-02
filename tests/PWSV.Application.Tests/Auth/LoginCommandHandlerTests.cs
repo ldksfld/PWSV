@@ -19,6 +19,7 @@ public sealed class LoginCommandHandlerTests
 
         var crypto = Substitute.For<ICryptoService>();
         crypto.TryInitializeKey(default!, default!, default, default, default!).ReturnsForAnyArgs(true);
+        crypto.Encrypt(Arg.Any<string>()).Returns(new EncryptedString([4], [5], [6]));
 
         var jwt = Substitute.For<IJwtService>();
         jwt.Generate(1, "ivan").Returns(new JwtTokenResult("token", DateTime.UtcNow.AddHours(8)));
@@ -72,6 +73,70 @@ public sealed class LoginCommandHandlerTests
         crypto.DidNotReceiveWithAnyArgs().TryInitializeKey(default!, default!, default, default, default!);
     }
 
+    [Fact]
+    public async Task Handle_WithStoredVerifier_VerifiesMasterPasswordAgainstVerifierOnly()
+    {
+        await using var db = CreateContext();
+        await SeedUserAsync(db, withEncryptedAccount: true, withVerifier: true);
+
+        var crypto = Substitute.For<ICryptoService>();
+        crypto.TryInitializeKey(default!, default!, default, default, default!).ReturnsForAnyArgs(true);
+        var jwt = Substitute.For<IJwtService>();
+        jwt.Generate(1, "ivan").Returns(new JwtTokenResult("token", DateTime.UtcNow.AddHours(8)));
+
+        var handler = new LoginCommandHandler(db, CreateHasher(), crypto, jwt);
+
+        await handler.Handle(new LoginCommand("ivan", "StrongPass1", "MasterKey#1"), CancellationToken.None);
+
+        crypto.Received(1).TryInitializeKey(
+            "MasterKey#1",
+            Arg.Any<byte[]>(),
+            100_000,
+            32,
+            Arg.Is<IReadOnlyCollection<EncryptedString>>(samples => samples.Count == 1 && samples.Single().Cipher.SequenceEqual(new byte[] { 11 })));
+        crypto.DidNotReceiveWithAnyArgs().Encrypt(default!);
+    }
+
+    [Fact]
+    public async Task Handle_WithoutVerifierAndWithoutEncryptedData_StoresVerifierAfterSuccessfulLogin()
+    {
+        await using var db = CreateContext();
+        await SeedUserAsync(db, withEncryptedAccount: false);
+
+        var crypto = Substitute.For<ICryptoService>();
+        crypto.TryInitializeKey(default!, default!, default, default, default!).ReturnsForAnyArgs(true);
+        crypto.Encrypt(Arg.Any<string>()).Returns(new EncryptedString([4], [5], [6]));
+        var jwt = Substitute.For<IJwtService>();
+        jwt.Generate(1, "ivan").Returns(new JwtTokenResult("token", DateTime.UtcNow.AddHours(8)));
+
+        var handler = new LoginCommandHandler(db, CreateHasher(), crypto, jwt);
+
+        await handler.Handle(new LoginCommand("ivan", "StrongPass1", "MasterKey#1"), CancellationToken.None);
+
+        var config = await db.KeyDerivationConfigs.AsNoTracking().SingleAsync();
+        config.VerifierCipher.Should().Equal(4);
+        config.VerifierNonce.Should().Equal(5);
+        config.VerifierTag.Should().Equal(6);
+    }
+
+    [Fact]
+    public async Task Handle_WithWrongMasterPasswordAndStoredVerifier_ThrowsUnauthorizedWithoutReplacingVerifier()
+    {
+        await using var db = CreateContext();
+        await SeedUserAsync(db, withEncryptedAccount: false, withVerifier: true);
+
+        var crypto = Substitute.For<ICryptoService>();
+        crypto.TryInitializeKey(default!, default!, default, default, default!).ReturnsForAnyArgs(false);
+
+        var handler = new LoginCommandHandler(db, CreateHasher(), crypto, Substitute.For<IJwtService>());
+
+        var act = () => handler.Handle(new LoginCommand("ivan", "StrongPass1", "Typo#Master1"), CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedException>().WithMessage("*майстер-пароль*");
+        (await db.KeyDerivationConfigs.AsNoTracking().SingleAsync()).VerifierCipher.Should().Equal(11);
+        crypto.DidNotReceiveWithAnyArgs().Encrypt(default!);
+    }
+
     private static IPasswordHasher CreateHasher()
     {
         var hasher = Substitute.For<IPasswordHasher>();
@@ -79,7 +144,7 @@ public sealed class LoginCommandHandlerTests
         return hasher;
     }
 
-    private static async Task SeedUserAsync(TestApplicationDbContext db, bool withEncryptedAccount)
+    private static async Task SeedUserAsync(TestApplicationDbContext db, bool withEncryptedAccount, bool withVerifier = false)
     {
         db.Users.Add(new User
         {
@@ -91,7 +156,10 @@ public sealed class LoginCommandHandlerTests
             {
                 Salt = [1, 2, 3],
                 Iterations = 100_000,
-                KeyLength = 32
+                KeyLength = 32,
+                VerifierCipher = withVerifier ? [11] : null,
+                VerifierNonce = withVerifier ? [12] : null,
+                VerifierTag = withVerifier ? [13] : null
             }
         });
 
