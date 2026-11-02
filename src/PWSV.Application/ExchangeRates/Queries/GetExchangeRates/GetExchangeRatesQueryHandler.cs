@@ -39,6 +39,7 @@ public sealed class GetExchangeRatesQueryHandler(IApplicationDbContext db)
 
         var rates = await queryable
             .OrderByDescending(r => r.EffectiveDate)
+            .ThenByDescending(r => r.Id)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
