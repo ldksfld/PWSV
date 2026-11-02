@@ -82,9 +82,10 @@ public sealed partial class TransactionsListViewModel(
             await LoadFilterOptionsAsync(cancellationToken);
 
             var page = await FetchPageAsync(cancellationToken);
-            if (page.Items.Count == 0 && page.TotalPages > 0 && PageNumber > page.TotalPages)
+            var lastPage = Math.Max(page.TotalPages, 1);
+            if (page.Items.Count == 0 && PageNumber > lastPage)
             {
-                PageNumber = page.TotalPages;
+                PageNumber = lastPage;
                 page = await FetchPageAsync(cancellationToken);
             }
 
@@ -259,6 +260,13 @@ public sealed partial class TransactionsListViewModel(
 
         SelectedAccountOption = AccountOptions.FirstOrDefault(o => o.Id == selectedAccountId) ?? AllAccounts;
         SelectedCategoryOption = CategoryOptions.FirstOrDefault(o => o.Id == selectedCategoryId) ?? AllCategories;
+
+        _appliedFilter = _appliedFilter with
+        {
+            AccountId = AccountOptions.Any(o => o.Id == _appliedFilter.AccountId) ? _appliedFilter.AccountId : null,
+            CategoryId = CategoryOptions.Any(o => o.Id == _appliedFilter.CategoryId) ? _appliedFilter.CategoryId : null
+        };
+        IsFilterApplied = _appliedFilter != TransactionFilterModel.Empty;
     }
 
     private void AddCategoryOptions(IReadOnlyList<CategoryModel> categories, string kind, string kindDisplay)
