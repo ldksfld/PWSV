@@ -33,7 +33,10 @@ public sealed class LoginCommandHandler(
             ?? throw new ConflictException(
                 "Параметри деривації ключа відсутні. Зверніться до адміністратора.");
 
-        var verificationSamples = await FindVerificationSamplesAsync(user.Id, cancellationToken).ConfigureAwait(false);
+        var verifier = MasterKeyVerifier.Read(config);
+        var verificationSamples = verifier is null
+            ? await FindVerificationSamplesAsync(user.Id, cancellationToken).ConfigureAwait(false)
+            : [verifier];
 
         var keyAccepted = cryptoService.TryInitializeKey(
             command.MasterPassword,
@@ -45,6 +48,12 @@ public sealed class LoginCommandHandler(
         if (!keyAccepted)
         {
             throw new UnauthorizedException("Невірний майстер-пароль.");
+        }
+
+        if (verifier is null)
+        {
+            MasterKeyVerifier.Store(config, cryptoService);
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
 
         var token = jwtService.Generate(user.Id, user.Username);

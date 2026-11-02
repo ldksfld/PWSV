@@ -28,24 +28,26 @@ public sealed class RegisterCommandHandler(
         }
 
         var salt = RandomNumberGenerator.GetBytes(SaltLengthBytes);
+        cryptoService.InitializeKey(command.MasterPassword, salt, DefaultIterations, DefaultKeyLength);
+
+        var keyDerivationConfig = new KeyDerivationConfig
+        {
+            Salt = salt,
+            Iterations = DefaultIterations,
+            KeyLength = DefaultKeyLength
+        };
+        MasterKeyVerifier.Store(keyDerivationConfig, cryptoService);
 
         var user = new User
         {
             Username = command.Username.Trim(),
             PasswordHash = passwordHasher.Hash(command.Password),
             CreatedAt = clock.UtcNow,
-            KeyDerivationConfig = new KeyDerivationConfig
-            {
-                Salt = salt,
-                Iterations = DefaultIterations,
-                KeyLength = DefaultKeyLength
-            }
+            KeyDerivationConfig = keyDerivationConfig
         };
 
         db.Users.Add(user);
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-
-        cryptoService.InitializeKey(command.MasterPassword, salt, DefaultIterations, DefaultKeyLength);
 
         var token = jwtService.Generate(user.Id, user.Username);
         return new AuthResponseDto(user.Id, user.Username, token.AccessToken, token.ExpiresAtUtc);
