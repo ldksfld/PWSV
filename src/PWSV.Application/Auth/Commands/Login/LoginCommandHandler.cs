@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using PWSV.Application.Auth.Dto;
 using PWSV.Application.Common.Exceptions;
 using PWSV.Application.Common.Interfaces;
-using PWSV.Domain.ValueObjects;
 
 namespace PWSV.Application.Auth.Commands.Login;
 
@@ -13,8 +12,6 @@ public sealed class LoginCommandHandler(
     ICryptoService cryptoService,
     IJwtService jwtService) : IRequestHandler<LoginCommand, AuthResponseDto>
 {
-    private const int VerificationSamplesPerSource = 3;
-
     public async Task<AuthResponseDto> Handle(LoginCommand command, CancellationToken cancellationToken)
     {
         var username = command.Username.Trim();
@@ -33,10 +30,10 @@ public sealed class LoginCommandHandler(
             ?? throw new ConflictException(
                 "Параметри деривації ключа відсутні. Зверніться до адміністратора.");
 
-        var verifier = MasterKeyVerifier.Read(config);
-        var verificationSamples = verifier is null
-            ? await FindVerificationSamplesAsync(user.Id, cancellationToken).ConfigureAwait(false)
-            : [verifier];
+        var hasVerifier = MasterKeyVerifier.Read(config) is not null;
+        var verificationSamples = await MasterKeyVerifier
+            .GetVerificationSamplesAsync(db, config, user.Id, cancellationToken)
+            .ConfigureAwait(false);
 
         var keyAccepted = cryptoService.TryInitializeKey(
             command.MasterPassword,
@@ -50,7 +47,7 @@ public sealed class LoginCommandHandler(
             throw new UnauthorizedException("Невірний майстер-пароль.");
         }
 
-        if (verifier is null)
+        if (!hasVerifier)
         {
             MasterKeyVerifier.Store(config, cryptoService);
             await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -58,34 +55,5 @@ public sealed class LoginCommandHandler(
 
         var token = jwtService.Generate(user.Id, user.Username);
         return new AuthResponseDto(user.Id, user.Username, token.AccessToken, token.ExpiresAtUtc);
-    }
-
-    private async Task<IReadOnlyCollection<EncryptedString>> FindVerificationSamplesAsync(int userId, CancellationToken cancellationToken)
-    {
-        var accountNumbers = await db.Accounts
-            .AsNoTracking()
-            .Where(a => a.UserId == userId
-                && a.AccountNumberCipher != null
-                && a.AccountNumberNonce != null
-                && a.AccountNumberTag != null)
-            .OrderBy(a => a.Id)
-            .Take(VerificationSamplesPerSource)
-            .Select(a => new EncryptedString(a.AccountNumberCipher!, a.AccountNumberNonce!, a.AccountNumberTag!))
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        var descriptions = await db.Transactions
-            .AsNoTracking()
-            .Where(t => t.Account.UserId == userId
-                && t.DescriptionCipher != null
-                && t.DescriptionNonce != null
-                && t.DescriptionTag != null)
-            .OrderBy(t => t.Id)
-            .Take(VerificationSamplesPerSource)
-            .Select(t => new EncryptedString(t.DescriptionCipher!, t.DescriptionNonce!, t.DescriptionTag!))
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        return [.. accountNumbers, .. descriptions];
     }
 }
