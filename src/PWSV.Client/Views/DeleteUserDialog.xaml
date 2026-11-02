@@ -1,0 +1,60 @@
+<Window x:Class="PWSV.Client.Views.DeleteUserDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:PWSV.Client.Converters"
+        Title="Видалення облікового запису" Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource BackgroundBrush}">
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+    </Window.Resources>
+    <Border Padding="24">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                <TextBlock Text="Видалення облікового запису" Style="{StaticResource HeadingTextStyle}" />
+                <TextBlock Text="Цю дію неможливо скасувати"
+                           Style="{StaticResource SubtitleTextStyle}" />
+            </StackPanel>
+
+            <Border Grid.Row="1" Style="{StaticResource WarningBannerStyle}">
+                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextPrimaryBrush}"
+                           Text="Буде безповоротно видалено обліковий запис разом з усіма рахунками, транзакціями, категоріями та курсами валют. Довідник валют і типи рахунків залишаться. Після видалення можна зареєструвати новий обліковий запис." />
+            </Border>
+
+            <Border Grid.Row="2" Style="{StaticResource ErrorBannerStyle}"
+                    Visibility="{Binding ErrorMessage, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="{Binding ErrorMessage}"
+                           Foreground="{StaticResource ErrorHoverBrush}"
+                           TextWrapping="Wrap" />
+            </Border>
+
+            <StackPanel Grid.Row="3">
+                <TextBlock Text="Пароль" Style="{StaticResource LabelTextStyle}" />
+                <PasswordBox PasswordChar="•" TabIndex="0"
+                             PasswordChanged="PasswordBox_OnPasswordChanged" />
+
+                <TextBlock Text="Майстер-пароль" Style="{StaticResource LabelTextStyle}" />
+                <PasswordBox PasswordChar="•" TabIndex="1"
+                             PasswordChanged="MasterPasswordBox_OnPasswordChanged" />
+            </StackPanel>
+
+            <Border Grid.Row="4" BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,1,0,0" Margin="0,16,0,0" Padding="0,16,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Скасувати" Click="OnCancelClick" IsCancel="True"
+                            Style="{StaticResource SecondaryButtonStyle}" TabIndex="3" />
+                    <Button Content="Видалити назавжди" Command="{Binding DeleteCommand}"
+                            Style="{StaticResource DangerButtonStyle}" TabIndex="2" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

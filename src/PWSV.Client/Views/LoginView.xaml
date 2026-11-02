@@ -7,67 +7,105 @@
     </UserControl.Resources>
 
     <Grid Background="{StaticResource BackgroundBrush}">
-        <Border Style="{StaticResource CardBorderStyle}"
-                Width="420" Padding="32,32,32,28"
-                HorizontalAlignment="Center" VerticalAlignment="Center"
-                Effect="{StaticResource ShadowLarge}">
-            <StackPanel>
-                <Border Width="56" Height="56"
-                        Background="{StaticResource PrimarySoftBrush}"
-                        CornerRadius="14"
-                        HorizontalAlignment="Center"
-                        Margin="0,0,0,16">
-                    <TextBlock Text="₴" FontSize="32" FontWeight="Bold"
-                               Foreground="{StaticResource PrimaryBrush}"
-                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Border>
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Border Style="{StaticResource CardBorderStyle}"
+                    Width="420" Padding="32,32,32,28"
+                    VerticalAlignment="Center"
+                    Effect="{StaticResource ShadowLarge}">
+                <StackPanel>
+                    <Border Width="56" Height="56"
+                            Background="{StaticResource PrimarySoftBrush}"
+                            CornerRadius="14"
+                            HorizontalAlignment="Center"
+                            Margin="0,0,0,16">
+                        <TextBlock Text="₴" FontSize="32" FontWeight="Bold"
+                                   Foreground="{StaticResource PrimaryBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
 
-                <TextBlock Text="Ласкаво просимо"
-                           Style="{StaticResource HeadingTextStyle}"
-                           HorizontalAlignment="Center" />
-                <TextBlock Text="Вхід до Personal Wealth &amp; Security Vault"
-                           Style="{StaticResource SubtitleTextStyle}"
-                           HorizontalAlignment="Center" />
+                    <TextBlock Text="Ласкаво просимо"
+                               Style="{StaticResource HeadingTextStyle}"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="Вхід до Personal Wealth &amp; Security Vault"
+                               Style="{StaticResource SubtitleTextStyle}"
+                               HorizontalAlignment="Center" />
 
-                <Border Style="{StaticResource ErrorBannerStyle}"
-                        Visibility="{Binding ErrorMessage, Converter={StaticResource BoolToVis}}">
-                    <TextBlock Text="{Binding ErrorMessage}"
-                               Foreground="{StaticResource ErrorHoverBrush}"
-                               TextWrapping="Wrap" />
-                </Border>
+                    <Border Style="{StaticResource ErrorBannerStyle}"
+                            Visibility="{Binding ErrorMessage, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="{Binding ErrorMessage}"
+                                   Foreground="{StaticResource ErrorHoverBrush}"
+                                   TextWrapping="Wrap" />
+                    </Border>
 
-                <TextBlock Text="Ім'я користувача" Style="{StaticResource LabelTextStyle}" />
-                <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" TabIndex="0" />
+                    <TextBlock Text="Ім'я користувача" Style="{StaticResource LabelTextStyle}" />
+                    <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" TabIndex="0" />
 
-                <TextBlock Text="Пароль" Style="{StaticResource LabelTextStyle}" />
-                <PasswordBox x:Name="PasswordBox" PasswordChar="•" TabIndex="1"
-                             PasswordChanged="PasswordBox_OnPasswordChanged" />
+                    <TextBlock Text="Пароль" Style="{StaticResource LabelTextStyle}" />
+                    <PasswordBox x:Name="PasswordBox" PasswordChar="•" TabIndex="1"
+                                 PasswordChanged="PasswordBox_OnPasswordChanged" />
 
-                <TextBlock Text="Майстер-пароль (для розшифрування даних)"
-                           Style="{StaticResource LabelTextStyle}" />
-                <PasswordBox x:Name="MasterPasswordBox" PasswordChar="•" TabIndex="2"
-                             PasswordChanged="MasterPasswordBox_OnPasswordChanged" />
+                    <TextBlock Text="Майстер-пароль (для розшифрування даних)"
+                               Style="{StaticResource LabelTextStyle}" />
+                    <PasswordBox x:Name="MasterPasswordBox" PasswordChar="•" TabIndex="2"
+                                 PasswordChanged="MasterPasswordBox_OnPasswordChanged" />
 
-                <Grid Margin="0,20,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Button Grid.Column="0" Content="Зареєструватись"
+                    <Grid Margin="0,20,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="Зареєструватись"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Command="{Binding GoToRegisterCommand}"
+                                Margin="0,0,4,0" TabIndex="4" />
+                        <Button Grid.Column="1" Content="Увійти"
+                                Command="{Binding LoginCommand}" IsDefault="True"
+                                Margin="4,0,0,0" TabIndex="3" />
+                    </Grid>
+
+                    <TextBlock Text="Зачекайте..."
+                               HorizontalAlignment="Center"
+                               Margin="0,12,0,0"
+                               Style="{StaticResource MutedTextStyle}"
+                               Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardBorderStyle}"
+                    Width="320" Padding="24" Margin="24,0,0,0"
+                    VerticalAlignment="Center"
+                    Effect="{StaticResource ShadowLarge}"
+                    Visibility="{Binding HasDemoAccount, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <TextBlock Text="Демо-обліковий запис" FontSize="16" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+                    <TextBlock Text="Готові дані за останні три місяці, щоб побачити, як усе працює"
+                               Style="{StaticResource SubtitleTextStyle}"
+                               TextWrapping="Wrap" Margin="0,4,0,8" />
+
+                    <TextBlock Text="Ім'я користувача" Style="{StaticResource LabelTextStyle}" />
+                    <TextBlock Text="{Binding DemoAccount.Username}" FontWeight="Medium"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+                    <TextBlock Text="Пароль" Style="{StaticResource LabelTextStyle}" />
+                    <TextBlock Text="{Binding DemoAccount.Password}" FontWeight="Medium"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+                    <TextBlock Text="Майстер-пароль" Style="{StaticResource LabelTextStyle}" />
+                    <TextBlock Text="{Binding DemoAccount.MasterPassword}" FontWeight="Medium"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+
+                    <Border Style="{StaticResource WarningBannerStyle}" Margin="0,16,0,16">
+                        <TextBlock TextWrapping="Wrap" FontSize="{StaticResource FontSizeSmall}"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   Text="Паролі демо-запису відкриті, тому не вносьте сюди реальні дані. Щоб працювати з власними, увійдіть, видаліть демо-запис кнопкою «Видалити обліковий запис» і зареєструйтеся." />
+                    </Border>
+
+                    <Button Content="Увійти в демо"
                             Style="{StaticResource SecondaryButtonStyle}"
-                            Command="{Binding GoToRegisterCommand}"
-                            Margin="0,0,4,0" TabIndex="4" />
-                    <Button Grid.Column="1" Content="Увійти"
-                            Command="{Binding LoginCommand}" IsDefault="True"
-                            Margin="4,0,0,0" TabIndex="3" />
-                </Grid>
-
-                <TextBlock Text="Зачекайте..."
-                           HorizontalAlignment="Center"
-                           Margin="0,12,0,0"
-                           Style="{StaticResource MutedTextStyle}"
-                           Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
-            </StackPanel>
-        </Border>
+                            Command="{Binding DemoLoginCommand}"
+                            TabIndex="5" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
     </Grid>
 </UserControl>

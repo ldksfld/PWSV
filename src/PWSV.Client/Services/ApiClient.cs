@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -47,6 +48,21 @@ public sealed class ApiClient(IHttpClientFactory factory) : IApiClient
     {
         var body = new { oldPassword, newPassword };
         return SendVoidAsync(HttpMethod.Post, "/api/v1/auth/change-password", body, cancellationToken);
+    }
+
+    public Task DeleteUserAsync(string password, string masterPassword, CancellationToken cancellationToken)
+    {
+        var body = new { password, masterPassword };
+        return SendVoidAsync(HttpMethod.Post, "/api/v1/auth/delete-user", body, cancellationToken);
+    }
+
+    public async Task<DemoAccountModel?> GetDemoAccountAsync(CancellationToken cancellationToken)
+    {
+        var client = factory.CreateClient(HttpClientName);
+        using var response = await client.GetAsync("/api/v1/auth/demo", cancellationToken);
+        return response.StatusCode == HttpStatusCode.NotFound
+            ? null
+            : await ParseAsync<DemoAccountModel>(response, cancellationToken);
     }
 
     public Task<IReadOnlyList<AccountModel>> GetAccountsAsync(bool includeInactive, CancellationToken cancellationToken)

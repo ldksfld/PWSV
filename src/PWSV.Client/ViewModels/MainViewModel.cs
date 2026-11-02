@@ -112,6 +112,22 @@ public sealed partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void DeleteUser()
+    {
+        var deleteUser = _services.GetRequiredService<DeleteUserViewModel>();
+        if (!_dialog.ShowDialog(deleteUser))
+        {
+            return;
+        }
+
+        _navigation.NavigateTo<RegisterViewModel>();
+        _tokenStorage.Clear();
+        _dialog.ShowInfo(
+            "Обліковий запис видалено",
+            "Обліковий запис і всі його дані видалено. Тепер можна зареєструвати новий обліковий запис.");
+    }
+
+    [RelayCommand]
     private void Logout()
     {
         _tokenStorage.Clear();

@@ -145,6 +145,7 @@ public partial class App : Application
         services.AddTransient<ViewModels.Categories.CategoryEditViewModel>();
         services.AddTransient<ViewModels.Transactions.TransactionEditViewModel>();
         services.AddTransient<ChangePasswordViewModel>();
+        services.AddTransient<DeleteUserViewModel>();
 
         services.AddSingleton<MainWindow>();
     }

@@ -21,6 +21,11 @@ public sealed partial class NavigationService(IServiceProvider services) : Obser
         var viewModel = services.GetRequiredService<TViewModel>();
         CurrentViewModel = viewModel;
         Navigated?.Invoke();
+
+        if (viewModel is ILoadableViewModel loadable && loadable.LoadCommand.CanExecute(null))
+        {
+            loadable.LoadCommand.Execute(null);
+        }
     }
 
     public void NavigateContent<TViewModel>() where TViewModel : ViewModelBase

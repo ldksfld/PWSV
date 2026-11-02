@@ -40,6 +40,7 @@
     <Color x:Key="SidebarItemActiveColor">#4F46E5</Color>
     <Color x:Key="SidebarTextColor">#CBD5E1</Color>
     <Color x:Key="SidebarTextActiveColor">#FFFFFF</Color>
+    <Color x:Key="SidebarDangerTextColor">#FCA5A5</Color>
 
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
     <SolidColorBrush x:Key="PrimaryHoverBrush" Color="{StaticResource PrimaryHoverColor}" />
@@ -80,6 +81,7 @@
     <SolidColorBrush x:Key="SidebarItemActiveBrush" Color="{StaticResource SidebarItemActiveColor}" />
     <SolidColorBrush x:Key="SidebarTextBrush" Color="{StaticResource SidebarTextColor}" />
     <SolidColorBrush x:Key="SidebarTextActiveBrush" Color="{StaticResource SidebarTextActiveColor}" />
+    <SolidColorBrush x:Key="SidebarDangerTextBrush" Color="{StaticResource SidebarDangerTextColor}" />
 
     <LinearGradientBrush x:Key="HeaderGradientBrush" StartPoint="0,0" EndPoint="1,0">
         <GradientStop Color="{StaticResource PrimaryColor}" Offset="0" />

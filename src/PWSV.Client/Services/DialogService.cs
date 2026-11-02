@@ -36,6 +36,7 @@ public sealed class DialogService : IDialogService
             CategoryEditViewModel category => new CategoryEditDialog(category),
             TransactionEditViewModel transaction => new TransactionEditDialog(transaction),
             ChangePasswordViewModel password => new ChangePasswordDialog(password),
+            DeleteUserViewModel deleteUser => new DeleteUserDialog(deleteUser),
             _ => throw new ArgumentException($"Dialog for {viewModel.GetType().Name} is not registered.", nameof(viewModel))
         };
 

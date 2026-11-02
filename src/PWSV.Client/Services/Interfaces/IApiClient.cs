@@ -18,6 +18,10 @@ public interface IApiClient
 
     Task ChangePasswordAsync(string oldPassword, string newPassword, CancellationToken cancellationToken);
 
+    Task DeleteUserAsync(string password, string masterPassword, CancellationToken cancellationToken);
+
+    Task<DemoAccountModel?> GetDemoAccountAsync(CancellationToken cancellationToken);
+
     Task<IReadOnlyList<AccountModel>> GetAccountsAsync(bool includeInactive, CancellationToken cancellationToken);
 
     Task<AccountDetailsModel> GetAccountAsync(int id, CancellationToken cancellationToken);
