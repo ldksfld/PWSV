@@ -22,6 +22,15 @@ public sealed class KeyDerivationConfigConfiguration : IEntityTypeConfiguration<
         builder.Property(k => k.KeyLength)
             .HasDefaultValue(32);
 
+        builder.Property(k => k.VerifierCipher)
+            .HasMaxLength(64);
+
+        builder.Property(k => k.VerifierNonce)
+            .HasMaxLength(16);
+
+        builder.Property(k => k.VerifierTag)
+            .HasMaxLength(16);
+
         builder.HasIndex(k => k.UserId).IsUnique();
     }
 }

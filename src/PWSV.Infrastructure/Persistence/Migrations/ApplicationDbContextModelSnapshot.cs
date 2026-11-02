@@ -421,6 +421,18 @@ namespace PWSV.Infrastructure.Persistence.Migrations
                     b.Property<int>("UserId")
                         .HasColumnType("int");
 
+                    b.Property<byte[]>("VerifierCipher")
+                        .HasMaxLength(64)
+                        .HasColumnType("varbinary(64)");
+
+                    b.Property<byte[]>("VerifierNonce")
+                        .HasMaxLength(16)
+                        .HasColumnType("varbinary(16)");
+
+                    b.Property<byte[]>("VerifierTag")
+                        .HasMaxLength(16)
+                        .HasColumnType("varbinary(16)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("UserId")
