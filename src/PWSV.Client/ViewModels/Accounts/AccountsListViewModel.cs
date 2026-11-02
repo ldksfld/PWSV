@@ -93,7 +93,7 @@ public sealed partial class AccountsListViewModel(
         navigation.NavigateContent(details);
     }
 
-    [RelayCommand(CanExecute = nameof(CanModifySelected))]
+    [RelayCommand(CanExecute = nameof(CanDeactivateSelected))]
     private async Task DeactivateAsync(CancellationToken cancellationToken)
     {
         if (SelectedAccount is null)
@@ -127,6 +127,7 @@ public sealed partial class AccountsListViewModel(
 
     private bool CanExecuteCommands() => !IsBusy;
     private bool CanModifySelected() => !IsBusy && SelectedAccount is not null;
+    private bool CanDeactivateSelected() => CanModifySelected() && SelectedAccount!.IsActive;
 
     partial void OnIncludeInactiveChanged(bool value) => LoadCommand.Execute(null);
 
