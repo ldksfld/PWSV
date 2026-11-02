@@ -56,6 +56,30 @@ public sealed class AuthEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Login_WithWrongMasterPasswordBeforeAnyEncryptedData_ReturnsUnauthorized()
+    {
+        var api = new ApiTestClient(_factory.CreateClient());
+        await api.RegisterAsync();
+        var client = _factory.CreateClient();
+
+        var typo = await client.PostAsJsonAsync("/api/v1/auth/login", new
+        {
+            username = ApiTestClient.Username,
+            password = ApiTestClient.Password,
+            masterPassword = "Typo#Master2026"
+        });
+        var correct = await client.PostAsJsonAsync("/api/v1/auth/login", new
+        {
+            username = ApiTestClient.Username,
+            password = ApiTestClient.Password,
+            masterPassword = ApiTestClient.MasterPassword
+        });
+
+        typo.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        correct.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task Login_WithWrongMasterPassword_ReturnsUnauthorizedAndKeepsSessionKey()
     {
         var api = new ApiTestClient(_factory.CreateClient());
