@@ -6,17 +6,25 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi.Models;
+using PWSV.Api.Demo;
 using PWSV.Api.Extensions;
 using PWSV.Api.Json;
 using PWSV.Api.Logging;
 using PWSV.Api.Middleware;
 using PWSV.Api.Services;
 using PWSV.Application;
+using PWSV.Application.Auth;
 using PWSV.Application.Common.Interfaces;
 using PWSV.Infrastructure;
 using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+var skipDemoData = args.Contains(DemoDataSeeder.NoDemoSwitch, StringComparer.OrdinalIgnoreCase);
+var builder = WebApplication.CreateBuilder(
+    args.Where(arg => !arg.Equals(DemoDataSeeder.NoDemoSwitch, StringComparison.OrdinalIgnoreCase)).ToArray());
+if (skipDemoData)
+{
+    builder.Configuration.AddInMemoryCollection([new KeyValuePair<string, string?>(DemoDataSeeder.SeedDemoDataKey, bool.FalseString)]);
+}
 
 builder.Host.UseSerilog((context, services, configuration) =>
 {
@@ -33,6 +41,8 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.Configure<DemoAccountOptions>(builder.Configuration.GetSection(DemoAccountOptions.SectionName));
+builder.Services.AddTransient<DemoDataSeeder>();
 
 builder.ConfigureJwtAuthentication();
 
@@ -67,6 +77,17 @@ builder.Services.AddRateLimiter(options =>
         return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = 3,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
+    options.AddPolicy("auth-demo", httpContext =>
+    {
+        var key = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
             Window = TimeSpan.FromMinutes(1),
             QueueLimit = 0,
             AutoReplenishment = true
@@ -139,7 +160,11 @@ var app = builder.Build();
 
 var databaseDirectory = Environment.ExpandEnvironmentVariables(
     builder.Configuration["Database:DataDirectory"] ?? "%LOCALAPPDATA%\\PWSV");
-await DatabaseInitializer.InitializeAsync(app.Services, databaseDirectory, CancellationToken.None).ConfigureAwait(false);
+var databaseCreated = await DatabaseInitializer.InitializeAsync(app.Services, databaseDirectory, CancellationToken.None).ConfigureAwait(false);
+if (databaseCreated && app.Configuration.GetValue<bool>(DemoDataSeeder.SeedDemoDataKey))
+{
+    await app.Services.GetRequiredService<DemoDataSeeder>().SeedAsync(CancellationToken.None).ConfigureAwait(false);
+}
 
 if (app.Environment.IsDevelopment())
 {
